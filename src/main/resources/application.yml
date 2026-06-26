@@ -14,6 +14,10 @@ spring:
   flyway:
     enabled: false   # 마이그레이션은 devpath-shared(중앙)에서 실행, 서비스는 validate만
 
+devpath:
+  auth:
+    jwt-secret: ${DEVPATH_AUTH_JWT_SECRET:test-secret-please-change-min-32-bytes-long-0123456789}
+
 server:
   port: 8080
 

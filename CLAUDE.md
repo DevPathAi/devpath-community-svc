@@ -70,3 +70,9 @@
   - 스킬: `/devpath-skillpack:spring-setup` · `:domain-modeler` · `:code-reviewer` · `:complexity-analyzer` · `:test-coverage-booster` · `:error-detective` · `:postgres-mcp-tuner` · `:brooks-lint-arch`
   - Sample Codes: Spring Boot 4 JPA·분산락·SSE·Audit·WebClient (study-documents `Sample Codes/🐤 Spring_Boot_4_*`)
   - 가이드: CQRS·Query-port·MSA 디자인 패턴
+
+## 🚫 메인 에이전트 도구 직접 호출 전면 금지 — 서브에이전트 위임 강제
+
+오케스트레이터(메인 Claude)는 **어떤 도구도 직접 호출하지 않는다** — Read·Grep·Glob·Bash·PowerShell·Edit·Write·git·PR 등 전부 포함. 모든 읽기·검색·셸 명령·파일 변경·빌드·테스트·git·PR 작업은 **서브에이전트(Agent/Task)에 위임**한다. 메인은 계획·위임·위임 결과 종합만 수행한다(위임 수단인 Agent/Task 호출만 유일 예외).
+
+**이유:** 메인 에이전트 출력에서 도구 호출 여는 태그의 `antml:` 프리픽스 누락이 반복돼 작업이 마비되고 사용자를 크게 분노시킴(2026-06-25~26 슬라이스 #8 세션). 위임하면 형식 오류 노출이 위임 호출로 최소화된다.
