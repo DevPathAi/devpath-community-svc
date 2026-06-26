@@ -13,10 +13,23 @@ spring:
       hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
     enabled: false   # 마이그레이션은 devpath-shared(중앙)에서 실행, 서비스는 validate만
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: devpath-community
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 devpath:
   auth:
     jwt-secret: ${DEVPATH_AUTH_JWT_SECRET:test-secret-please-change-min-32-bytes-long-0123456789}
+  ai-svc:
+    base-url: ${AI_SVC_URI:http://localhost:8081}
+    timeout: ${AI_SVC_TIMEOUT:PT5S}
 
 server:
   port: 8080
