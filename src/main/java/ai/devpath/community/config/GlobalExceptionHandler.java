@@ -1,6 +1,7 @@
 package ai.devpath.community.config;
 
 import ai.devpath.community.post.ForbiddenException;
+import ai.devpath.community.post.InvalidVoteException;
 import ai.devpath.community.post.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,5 +18,10 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ForbiddenException.class)
   public ResponseEntity<String> forbidden(ForbiddenException e) {
     return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+  }
+
+  @ExceptionHandler(InvalidVoteException.class)
+  public ResponseEntity<String> badVote(InvalidVoteException e) {
+    return ResponseEntity.badRequest().body(e.getMessage());
   }
 }

@@ -13,10 +13,13 @@ import org.springframework.web.bind.annotation.*;
 public class CommunityController {
   private final QuestionService questionService;
   private final AnswerService answerService;
+  private final VoteService voteService;
 
-  public CommunityController(QuestionService questionService, AnswerService answerService) {
+  public CommunityController(QuestionService questionService, AnswerService answerService,
+      VoteService voteService) {
     this.questionService = questionService;
     this.answerService = answerService;
+    this.voteService = voteService;
   }
 
   @PostMapping("/questions")
@@ -49,6 +52,20 @@ public class CommunityController {
       @RequestParam(required = false) String tag,
       @RequestParam(required = false) String sort) {
     return ResponseEntity.ok(questionService.list(board, tag, sort));
+  }
+
+  @PostMapping("/posts/{id}/vote")
+  public ResponseEntity<Void> votePost(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+      @RequestBody VoteRequest req) {
+    voteService.votePost(uid(jwt), id, req.value());
+    return ResponseEntity.ok().build();
+  }
+
+  @PostMapping("/answers/{id}/vote")
+  public ResponseEntity<Void> voteAnswer(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+      @RequestBody VoteRequest req) {
+    voteService.voteAnswer(uid(jwt), id, req.value());
+    return ResponseEntity.ok().build();
   }
 
   static long uid(Jwt jwt) { return Long.parseLong(jwt.getSubject()); }
