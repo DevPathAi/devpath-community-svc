@@ -1,10 +1,15 @@
 package ai.devpath.community.post;
 
+import ai.devpath.community.outbox.OutboxEntry;
+import ai.devpath.community.outbox.OutboxRepository;
 import ai.devpath.community.post.dto.*;
+import ai.devpath.shared.event.CommunityQuestionPostedEvent;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class QuestionService {
@@ -13,12 +18,15 @@ public class QuestionService {
   private final CommunityAnswerRepository answers;
   private final CommunityTagRepository tags;
   private final CommunityPostTagRepository postTags;
+  private final OutboxRepository outbox;
+  private final JsonMapper jsonMapper;
 
   public QuestionService(CommunityPostRepository posts, CommunityQuestionRepository questions,
       CommunityAnswerRepository answers, CommunityTagRepository tags,
-      CommunityPostTagRepository postTags) {
+      CommunityPostTagRepository postTags, OutboxRepository outbox, JsonMapper jsonMapper) {
     this.posts = posts; this.questions = questions; this.answers = answers;
     this.tags = tags; this.postTags = postTags;
+    this.outbox = outbox; this.jsonMapper = jsonMapper;
   }
 
   @Transactional
@@ -37,7 +45,21 @@ public class QuestionService {
       });
       postTags.save(new CommunityPostTag(p.getId(), tag.getId()));
     }
+    publishQuestionPosted(userId, p.getId(), req);
     return detail(p.getId());
+  }
+
+  /** 질문 게시 이벤트를 같은 트랜잭션의 Outbox에 적재(설계 D-1). questionId == postId(question PK = post id). */
+  private void publishQuestionPosted(long userId, long postId, CreateQuestionRequest req) {
+    CommunityQuestionPostedEvent event = new CommunityQuestionPostedEvent(
+        UUID.randomUUID(), Instant.now(), userId, postId, postId, req.title(), req.bodyMd());
+    OutboxEntry entry = new OutboxEntry();
+    entry.setAggregateType("community_question");
+    entry.setAggregateId(String.valueOf(postId));
+    entry.setEventType(CommunityQuestionPostedEvent.EVENT_TYPE);
+    entry.setPayload(jsonMapper.writeValueAsString(event));
+    entry.setCreatedAt(Instant.now());
+    outbox.save(entry);
   }
 
   @Transactional(readOnly = true)
