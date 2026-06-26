@@ -4,4 +4,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CommunityTagRepository extends JpaRepository<CommunityTag, Long> {
   java.util.Optional<CommunityTag> findByName(String name);
+  java.util.List<CommunityTag> findTop10ByNameStartingWithOrderByPostCountDesc(String prefix);
 }

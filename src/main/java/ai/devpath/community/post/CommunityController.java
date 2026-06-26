@@ -14,12 +14,14 @@ public class CommunityController {
   private final QuestionService questionService;
   private final AnswerService answerService;
   private final VoteService voteService;
+  private final TagService tagService;
 
   public CommunityController(QuestionService questionService, AnswerService answerService,
-      VoteService voteService) {
+      VoteService voteService, TagService tagService) {
     this.questionService = questionService;
     this.answerService = answerService;
     this.voteService = voteService;
+    this.tagService = tagService;
   }
 
   @PostMapping("/questions")
@@ -66,6 +68,11 @@ public class CommunityController {
       @RequestBody VoteRequest req) {
     voteService.voteAnswer(uid(jwt), id, req.value());
     return ResponseEntity.ok().build();
+  }
+
+  @GetMapping("/tags")
+  public ResponseEntity<List<TagView>> tags(@RequestParam(required = false) String q) {
+    return ResponseEntity.ok(tagService.autocomplete(q));
   }
 
   static long uid(Jwt jwt) { return Long.parseLong(jwt.getSubject()); }
