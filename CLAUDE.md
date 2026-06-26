@@ -71,8 +71,11 @@
   - Sample Codes: Spring Boot 4 JPA·분산락·SSE·Audit·WebClient (study-documents `Sample Codes/🐤 Spring_Boot_4_*`)
   - 가이드: CQRS·Query-port·MSA 디자인 패턴
 
-## 🚫 메인 에이전트 도구 직접 호출 전면 금지 — 서브에이전트 위임 강제
+## ⚠️ 도구 호출 환경 규칙 — Windows/PowerShell 한정 위임, WSL+Bash는 메인 직접 OK
 
-오케스트레이터(메인 Claude)는 **어떤 도구도 직접 호출하지 않는다** — Read·Grep·Glob·Bash·PowerShell·Edit·Write·git·PR 등 전부 포함. 모든 읽기·검색·셸 명령·파일 변경·빌드·테스트·git·PR 작업은 **서브에이전트(Agent/Task)에 위임**한다. 메인은 계획·위임·위임 결과 종합만 수행한다(위임 수단인 Agent/Task 호출만 유일 예외).
+도구 호출 방식은 **실행 환경에 따라 다르다**(2026-06-26 슬라이스 #8 D·E에서 확정):
 
-**이유:** 메인 에이전트 출력에서 도구 호출 여는 태그의 `antml:` 프리픽스 누락이 반복돼 작업이 마비되고 사용자를 크게 분노시킴(2026-06-25~26 슬라이스 #8 세션). 위임하면 형식 오류 노출이 위임 호출로 최소화된다.
+- **Windows / PowerShell**: 메인 에이전트 출력에서 도구 호출 여는 태그의 `antml:` 프리픽스 누락이 반복돼 작업이 마비된 이력(2026-06-25~26 슬라이스 #8). 이 환경에서는 메인이 직접 도구를 호출하지 말고, 읽기·검색·셸·파일 변경·빌드·테스트·git·PR을 모두 **서브에이전트(Agent/Task)에 위임**한다(형식 오류 노출 최소화).
+- **WSL + Bash**: 위 `antml` 프리픽스 버그는 **PowerShell 한정**으로 확인됨 — WSL+Bash에서는 메인이 모든 도구를 **직접 호출해도 무방**하다(빌드 D·E를 메인 직접 호출로 antml 마찰 0건 완주). 막히면 그때 서브에이전트에 위임한다.
+
+**공통:** 모든 도구 호출은 Windows PowerShell을 쓰지 않고 **Bash만** 사용한다. 서브에이전트에 위임할 때는 작업 경계를 명시적으로 못박는다(Scope Lock).
