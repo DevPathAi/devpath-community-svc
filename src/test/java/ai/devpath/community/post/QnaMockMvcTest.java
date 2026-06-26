@@ -52,4 +52,31 @@ class QnaMockMvcTest {
   void unauthenticatedRejected() throws Exception {
     mvc.perform(get("/community/posts?board=QNA")).andExpect(status().isUnauthorized());
   }
+
+  @Test
+  void answerThenAcceptByOwner() throws Exception {
+    String qBody = mvc.perform(post("/community/questions").with(jwt().jwt(j -> j.subject("200")))
+        .contentType("application/json").content("{\"title\":\"q\",\"bodyMd\":\"b\",\"tags\":[]}"))
+        .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+    long qid = com.jayway.jsonpath.JsonPath.parse(qBody).read("$.id", Long.class);
+
+    String aBody = mvc.perform(post("/community/questions/" + qid + "/answers")
+            .with(jwt().jwt(j -> j.subject("201")))
+            .contentType("application/json").content("{\"bodyMd\":\"답변내용\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.bodyMd").value("답변내용"))
+        .andReturn().getResponse().getContentAsString();
+    long aid = com.jayway.jsonpath.JsonPath.parse(aBody).read("$.id", Long.class);
+
+    // 비OWNER(작성자 200 아님) 채택 시도 → 403
+    mvc.perform(post("/community/answers/" + aid + "/accept").with(jwt().jwt(j -> j.subject("999"))))
+        .andExpect(status().isForbidden());
+
+    // OWNER(200) 채택 → 200, 이후 상세에서 solved=true
+    mvc.perform(post("/community/answers/" + aid + "/accept").with(jwt().jwt(j -> j.subject("200"))))
+        .andExpect(status().isOk());
+    mvc.perform(get("/community/questions/" + qid).with(jwt().jwt(j -> j.subject("200"))))
+        .andExpect(jsonPath("$.solved").value(true))
+        .andExpect(jsonPath("$.acceptedAnswerId").value(aid));
+  }
 }

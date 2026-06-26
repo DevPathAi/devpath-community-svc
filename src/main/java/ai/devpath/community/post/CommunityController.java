@@ -12,15 +12,30 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/community")
 public class CommunityController {
   private final QuestionService questionService;
+  private final AnswerService answerService;
 
-  public CommunityController(QuestionService questionService) {
+  public CommunityController(QuestionService questionService, AnswerService answerService) {
     this.questionService = questionService;
+    this.answerService = answerService;
   }
 
   @PostMapping("/questions")
   public ResponseEntity<QuestionDetailView> create(
       @AuthenticationPrincipal Jwt jwt, @RequestBody CreateQuestionRequest req) {
     return ResponseEntity.status(HttpStatus.CREATED).body(questionService.create(uid(jwt), req));
+  }
+
+  @PostMapping("/questions/{id}/answers")
+  public ResponseEntity<AnswerView> answer(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+      @RequestBody CreateAnswerRequest req) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(answerService.add(uid(jwt), id, req));
+  }
+
+  @PostMapping("/answers/{id}/accept")
+  public ResponseEntity<Void> accept(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+    answerService.accept(uid(jwt), id);
+    return ResponseEntity.ok().build();
   }
 
   @GetMapping("/questions/{id}")
