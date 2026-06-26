@@ -1,7 +1,13 @@
 package ai.devpath.community.post;
 
 import ai.devpath.community.post.dto.*;
+import ai.devpath.community.seed.EmbeddingClient;
+import ai.devpath.community.seed.EmbeddingUnavailableException;
+import ai.devpath.community.seed.SimilarQuestionMatcher;
+import ai.devpath.community.seed.dto.SimilarQuestionView;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,17 +17,25 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/community")
 public class CommunityController {
+
+  private static final Logger log = LoggerFactory.getLogger(CommunityController.class);
+
   private final QuestionService questionService;
   private final AnswerService answerService;
   private final VoteService voteService;
   private final TagService tagService;
+  private final EmbeddingClient embeddingClient;
+  private final SimilarQuestionMatcher similarQuestionMatcher;
 
   public CommunityController(QuestionService questionService, AnswerService answerService,
-      VoteService voteService, TagService tagService) {
+      VoteService voteService, TagService tagService, EmbeddingClient embeddingClient,
+      SimilarQuestionMatcher similarQuestionMatcher) {
     this.questionService = questionService;
     this.answerService = answerService;
     this.voteService = voteService;
     this.tagService = tagService;
+    this.embeddingClient = embeddingClient;
+    this.similarQuestionMatcher = similarQuestionMatcher;
   }
 
   @PostMapping("/questions")
@@ -41,6 +55,20 @@ public class CommunityController {
   public ResponseEntity<Void> accept(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
     answerService.accept(uid(jwt), id);
     return ResponseEntity.ok().build();
+  }
+
+  @GetMapping("/questions/similar")
+  public ResponseEntity<List<SimilarQuestionView>> similar(@RequestParam(required = false) String q) {
+    if (q == null || q.isBlank()) {
+      return ResponseEntity.ok(List.of());
+    }
+    try {
+      List<Double> embedding = embeddingClient.embed(q);
+      return ResponseEntity.ok(similarQuestionMatcher.match(embedding, 5));
+    } catch (EmbeddingUnavailableException e) {
+      log.warn("유사질문 임베딩 실패 — 빈 결과 반환: {}", e.getMessage());
+      return ResponseEntity.ok(List.of());
+    }
   }
 
   @GetMapping("/questions/{id}")

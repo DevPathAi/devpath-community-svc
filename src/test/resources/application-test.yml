@@ -9,6 +9,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+  kafka:
+    consumer:
+      group-id: devpath-community-test
+      auto-offset-reset: earliest
 devpath:
   auth:
     jwt-secret: test-secret-please-change-min-32-bytes-long-0123456789
+  ai-svc:
+    # 테스트 기본(미사용; SimilarQuestionApiTest는 EmbeddingClient를 mock으로 교체).
+    base-url: http://localhost:9
+    timeout: PT1S
