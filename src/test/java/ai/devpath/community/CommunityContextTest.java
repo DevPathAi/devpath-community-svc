@@ -6,11 +6,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class CommunityApplicationTests {
-
-	@Test
-	void contextLoads() {
-	}
-
+class CommunityContextTest {
+  @Test
+  void contextLoads() {}
 }
-
