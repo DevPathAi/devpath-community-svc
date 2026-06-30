@@ -47,6 +47,9 @@ public class VoteService {
     if (value == -1) {
       badgeService.award(userId, BadgeCode.CRITIC, "POST", postId);
     }
+    if (reputation.reputationOf(p.getAuthorId()) >= RepPoints.LVL_UPVOTE_QUESTION) {
+      badgeService.award(p.getAuthorId(), BadgeCode.PHILANTHROPIST, "POST", postId);
+    }
   }
 
   @Transactional
@@ -75,6 +78,9 @@ public class VoteService {
     }
     if (value == -1) {
       badgeService.award(userId, BadgeCode.CRITIC, "ANSWER", answerId);
+    }
+    if (reputation.reputationOf(a.getAuthorId()) >= RepPoints.LVL_UPVOTE_QUESTION) {
+      badgeService.award(a.getAuthorId(), BadgeCode.PHILANTHROPIST, "ANSWER", answerId);
     }
   }
 

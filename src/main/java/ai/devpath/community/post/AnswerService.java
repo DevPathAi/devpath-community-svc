@@ -58,5 +58,14 @@ public class AnswerService {
     List<Long> tagIds = postTags.findByPostId(q.getPostId()).stream()
         .map(CommunityPostTag::getTagId).toList();
     reputation.applyAcceptance(a.getAuthorId(), p.getAuthorId(), "ANSWER", answerId, tagIds);
+    // 배지: 평판 15 도달 → PHILANTHROPIST(답변 작성자·질문 작성자 둘 다 평가)
+    awardPhilanthropistIfReached(a.getAuthorId(), "ANSWER", answerId);
+    awardPhilanthropistIfReached(p.getAuthorId(), "POST", q.getPostId());
+  }
+
+  private void awardPhilanthropistIfReached(long userId, String sourceType, long sourceId) {
+    if (reputation.reputationOf(userId) >= ai.devpath.community.reputation.RepPoints.LVL_UPVOTE_QUESTION) {
+      badgeService.award(userId, BadgeCode.PHILANTHROPIST, sourceType, sourceId);
+    }
   }
 }

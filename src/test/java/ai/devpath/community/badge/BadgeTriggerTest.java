@@ -71,4 +71,13 @@ class BadgeTriggerTest {
     voteService.votePost(voter, q.id(), -1); // 질문 downvote는 레벨 게이트 없음 → CRITIC
     assertThat(has(voter, "CRITIC")).isTrue();
   }
+
+  @Test
+  void reachingReputation15AwardsPhilanthropist() {
+    long answerer = 73001, asker = 73002;
+    var q = questionService.create(asker, new CreateQuestionRequest("t", "b", List.of()));
+    var a = answerService.add(answerer, q.id(), new CreateAnswerRequest("ans"));
+    answerService.accept(asker, a.id()); // 답변 채택 → answerer +15
+    assertThat(has(answerer, "PHILANTHROPIST")).isTrue();
+  }
 }
