@@ -62,6 +62,7 @@ class BadgeTriggerTest {
     var a = answerService.add(answerer, q.id(), new CreateAnswerRequest("ans"));
     voteService.voteAnswer(voter, a.id(), 1); // 답변 upvote는 게이트 없음
     assertThat(has(answerer, "TEACHER")).isTrue();
+    assertThat(has(asker, "STUDENT")).isFalse();
   }
 
   @Test

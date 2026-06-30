@@ -4,6 +4,7 @@ import ai.devpath.community.badge.BadgeCode;
 import ai.devpath.community.badge.BadgeService;
 import ai.devpath.community.post.dto.AnswerView;
 import ai.devpath.community.post.dto.CreateAnswerRequest;
+import ai.devpath.community.reputation.RepPoints;
 import ai.devpath.community.reputation.ReputationService;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -64,7 +65,7 @@ public class AnswerService {
   }
 
   private void awardPhilanthropistIfReached(long userId, String sourceType, long sourceId) {
-    if (reputation.reputationOf(userId) >= ai.devpath.community.reputation.RepPoints.LVL_UPVOTE_QUESTION) {
+    if (reputation.reputationOf(userId) >= RepPoints.LVL_UPVOTE_QUESTION) {
       badgeService.award(userId, BadgeCode.PHILANTHROPIST, sourceType, sourceId);
     }
   }

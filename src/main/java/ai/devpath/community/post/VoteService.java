@@ -41,6 +41,7 @@ public class VoteService {
     List<Long> tagIds = postTags.findByPostId(postId).stream().map(CommunityPostTag::getTagId).toList();
     reputation.applyVote(p.getAuthorId(), userId, "POST", postId, oldValue, value, tagIds);
     // 배지: 순점수 +1 도달 → 글 작성자 STUDENT, downvote 행사 → 투표자 CRITIC
+    // 자기 글 투표로도 획득 가능 — 자기투표/sockpuppet 게이팅은 Build 3에서 정합.
     if (p.getUpvoteCount() - p.getDownvoteCount() >= 1) {
       badgeService.award(p.getAuthorId(), BadgeCode.STUDENT, "POST", postId);
     }
@@ -71,6 +72,7 @@ public class VoteService {
         .map(CommunityPostTag::getTagId).toList();
     reputation.applyVote(a.getAuthorId(), userId, "ANSWER", answerId, oldValue, value, tagIds);
     // 배지: 답변 순점수 +1 도달 → 답변 작성자 TEACHER, downvote 행사 → 투표자 CRITIC
+    // 자기 글 투표로도 획득 가능 — 자기투표/sockpuppet 게이팅은 Build 3에서 정합.
     int answerNet = a.getUpvoteCount()
         - votes.countByTargetTypeAndTargetIdAndValue("ANSWER", answerId, (short) -1);
     if (answerNet >= 1) {
