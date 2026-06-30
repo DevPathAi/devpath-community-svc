@@ -1,5 +1,7 @@
 package ai.devpath.community.post;
 
+import ai.devpath.community.badge.BadgeCode;
+import ai.devpath.community.badge.BadgeService;
 import ai.devpath.community.outbox.OutboxEntry;
 import ai.devpath.community.outbox.OutboxRepository;
 import ai.devpath.community.post.dto.*;
@@ -20,13 +22,16 @@ public class QuestionService {
   private final CommunityPostTagRepository postTags;
   private final OutboxRepository outbox;
   private final JsonMapper jsonMapper;
+  private final BadgeService badgeService;
 
   public QuestionService(CommunityPostRepository posts, CommunityQuestionRepository questions,
       CommunityAnswerRepository answers, CommunityTagRepository tags,
-      CommunityPostTagRepository postTags, OutboxRepository outbox, JsonMapper jsonMapper) {
+      CommunityPostTagRepository postTags, OutboxRepository outbox, JsonMapper jsonMapper,
+      BadgeService badgeService) {
     this.posts = posts; this.questions = questions; this.answers = answers;
     this.tags = tags; this.postTags = postTags;
     this.outbox = outbox; this.jsonMapper = jsonMapper;
+    this.badgeService = badgeService;
   }
 
   @Transactional
@@ -46,6 +51,7 @@ public class QuestionService {
       postTags.save(new CommunityPostTag(p.getId(), tag.getId()));
     }
     publishQuestionPosted(userId, p.getId(), req);
+    badgeService.award(userId, BadgeCode.FIRST_QUESTION, "POST", p.getId());
     return detail(p.getId());
   }
 

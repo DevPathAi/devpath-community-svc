@@ -1,5 +1,7 @@
 package ai.devpath.community.post;
 
+import ai.devpath.community.badge.BadgeCode;
+import ai.devpath.community.badge.BadgeService;
 import ai.devpath.community.post.dto.AnswerView;
 import ai.devpath.community.post.dto.CreateAnswerRequest;
 import ai.devpath.community.reputation.ReputationService;
@@ -14,12 +16,14 @@ public class AnswerService {
   private final CommunityAnswerRepository answers;
   private final ReputationService reputation;
   private final CommunityPostTagRepository postTags;
+  private final BadgeService badgeService;
 
   public AnswerService(CommunityPostRepository posts, CommunityQuestionRepository questions,
       CommunityAnswerRepository answers, ReputationService reputation,
-      CommunityPostTagRepository postTags) {
+      CommunityPostTagRepository postTags, BadgeService badgeService) {
     this.posts = posts; this.questions = questions; this.answers = answers;
     this.reputation = reputation; this.postTags = postTags;
+    this.badgeService = badgeService;
   }
 
   @Transactional
@@ -28,6 +32,7 @@ public class AnswerService {
     CommunityAnswer a = new CommunityAnswer();
     a.setQuestionId(questionId); a.setAuthorId(userId); a.setBodyMd(req.bodyMd());
     a = answers.save(a);
+    badgeService.award(userId, BadgeCode.FIRST_ANSWER, "ANSWER", a.getId());
     return new AnswerView(a.getId(), a.getAuthorId(), a.getBodyMd(),
         a.isAiGenerated(), a.isAccepted(), a.getUpvoteCount());
   }
