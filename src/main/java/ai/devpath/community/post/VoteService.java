@@ -1,5 +1,7 @@
 package ai.devpath.community.post;
 
+import ai.devpath.community.badge.BadgeCode;
+import ai.devpath.community.badge.BadgeService;
 import ai.devpath.community.reputation.RepPoints;
 import ai.devpath.community.reputation.ReputationService;
 import java.util.List;
@@ -14,12 +16,15 @@ public class VoteService {
   private final CommunityQuestionRepository questions;
   private final CommunityPostTagRepository postTags;
   private final ReputationService reputation;
+  private final BadgeService badgeService;
 
   public VoteService(CommunityVoteRepository votes, CommunityPostRepository posts,
       CommunityAnswerRepository answers, CommunityQuestionRepository questions,
-      CommunityPostTagRepository postTags, ReputationService reputation) {
+      CommunityPostTagRepository postTags, ReputationService reputation,
+      BadgeService badgeService) {
     this.votes = votes; this.posts = posts; this.answers = answers;
     this.questions = questions; this.postTags = postTags; this.reputation = reputation;
+    this.badgeService = badgeService;
   }
 
   @Transactional
@@ -35,6 +40,17 @@ public class VoteService {
     refreshPostCounts(p, postId);
     List<Long> tagIds = postTags.findByPostId(postId).stream().map(CommunityPostTag::getTagId).toList();
     reputation.applyVote(p.getAuthorId(), userId, "POST", postId, oldValue, value, tagIds);
+    // 배지: 순점수 +1 도달 → 글 작성자 STUDENT, downvote 행사 → 투표자 CRITIC
+    // 자기 글 투표로도 획득 가능 — 자기투표/sockpuppet 게이팅은 Build 3에서 정합.
+    if (p.getUpvoteCount() - p.getDownvoteCount() >= 1) {
+      badgeService.award(p.getAuthorId(), BadgeCode.STUDENT, "POST", postId);
+    }
+    if (value == -1) {
+      badgeService.award(userId, BadgeCode.CRITIC, "POST", postId);
+    }
+    if (reputation.reputationOf(p.getAuthorId()) >= RepPoints.LVL_UPVOTE_QUESTION) {
+      badgeService.award(p.getAuthorId(), BadgeCode.PHILANTHROPIST, "POST", postId);
+    }
   }
 
   @Transactional
@@ -55,6 +71,19 @@ public class VoteService {
     List<Long> tagIds = postTags.findByPostId(q.getPostId()).stream()
         .map(CommunityPostTag::getTagId).toList();
     reputation.applyVote(a.getAuthorId(), userId, "ANSWER", answerId, oldValue, value, tagIds);
+    // 배지: 답변 순점수 +1 도달 → 답변 작성자 TEACHER, downvote 행사 → 투표자 CRITIC
+    // 자기 글 투표로도 획득 가능 — 자기투표/sockpuppet 게이팅은 Build 3에서 정합.
+    int answerNet = a.getUpvoteCount()
+        - votes.countByTargetTypeAndTargetIdAndValue("ANSWER", answerId, (short) -1);
+    if (answerNet >= 1) {
+      badgeService.award(a.getAuthorId(), BadgeCode.TEACHER, "ANSWER", answerId);
+    }
+    if (value == -1) {
+      badgeService.award(userId, BadgeCode.CRITIC, "ANSWER", answerId);
+    }
+    if (reputation.reputationOf(a.getAuthorId()) >= RepPoints.LVL_UPVOTE_QUESTION) {
+      badgeService.award(a.getAuthorId(), BadgeCode.PHILANTHROPIST, "ANSWER", answerId);
+    }
   }
 
   private int currentValue(long userId, String type, long targetId) {
