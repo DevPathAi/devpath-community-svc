@@ -42,6 +42,12 @@ class BadgeServiceTest {
     assertThat(outbox.findAll().stream()
         .anyMatch(e -> CommunityBadgeAwardedEvent.EVENT_TYPE.equals(e.getEventType())
             && e.getPayload().contains("\"badgeCode\":\"CRITIC\""))).isTrue();
+    var entry = outbox.findAll().stream()
+        .filter(e -> CommunityBadgeAwardedEvent.EVENT_TYPE.equals(e.getEventType()))
+        .reduce((a, b) -> b)
+        .orElseThrow();
+    assertThat(entry.getAggregateType()).isEqualTo("community_badge");
+    assertThat(entry.getAggregateId()).isEqualTo("70002:CRITIC");
   }
 
   @Test

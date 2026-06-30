@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /d \\\"D:\\\\workspace\\\\dpa\\\\devpath-community-svc\\\" && ./gradlew compileJava 2>&1 | tail -50\",\"description\":\"Run compileJava to verify all new files compile successfully\"}",
+  "error": "Exit code 1\n/usr/bin/bash: line 1: cd: too many arguments",
+  "timestamp": "2026-06-30T12:21:49.603Z",
+  "retry_count": 1
+}

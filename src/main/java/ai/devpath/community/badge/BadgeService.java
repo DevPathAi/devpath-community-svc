@@ -30,14 +30,15 @@ public class BadgeService {
         .orElseThrow(() -> new IllegalStateException("badge not seeded: " + code));
     if (userBadges.existsByUserIdAndBadgeId(userId, badge.getId())) return false;
     userBadges.save(new UserBadge(userId, badge.getId()));
+    Instant now = Instant.now();
     CommunityBadgeAwardedEvent event = new CommunityBadgeAwardedEvent(
-        UUID.randomUUID(), Instant.now(), userId, code.name(), badge.getId(), sourceType, sourceId);
+        UUID.randomUUID(), now, userId, code.name(), badge.getId(), sourceType, sourceId);
     OutboxEntry entry = new OutboxEntry();
     entry.setAggregateType("community_badge");
     entry.setAggregateId(userId + ":" + code.name());
     entry.setEventType(CommunityBadgeAwardedEvent.EVENT_TYPE);
     entry.setPayload(jsonMapper.writeValueAsString(event));
-    entry.setCreatedAt(Instant.now());
+    entry.setCreatedAt(now);
     outbox.save(entry);
     return true;
   }
