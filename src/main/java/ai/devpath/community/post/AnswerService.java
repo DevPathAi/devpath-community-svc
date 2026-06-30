@@ -2,6 +2,8 @@ package ai.devpath.community.post;
 
 import ai.devpath.community.post.dto.AnswerView;
 import ai.devpath.community.post.dto.CreateAnswerRequest;
+import ai.devpath.community.reputation.ReputationService;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,10 +12,14 @@ public class AnswerService {
   private final CommunityPostRepository posts;
   private final CommunityQuestionRepository questions;
   private final CommunityAnswerRepository answers;
+  private final ReputationService reputation;
+  private final CommunityPostTagRepository postTags;
 
   public AnswerService(CommunityPostRepository posts, CommunityQuestionRepository questions,
-      CommunityAnswerRepository answers) {
+      CommunityAnswerRepository answers, ReputationService reputation,
+      CommunityPostTagRepository postTags) {
     this.posts = posts; this.questions = questions; this.answers = answers;
+    this.reputation = reputation; this.postTags = postTags;
   }
 
   @Transactional
@@ -30,6 +36,7 @@ public class AnswerService {
   public void accept(long userId, long answerId) {
     CommunityAnswer a = answers.findById(answerId)
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
+    if (a.isAccepted()) return;   // 중복 채택 가드(중복 가산 방지)
     CommunityQuestion q = questions.findById(a.getQuestionId())
         .orElseThrow(() -> new NotFoundException("question " + a.getQuestionId()));
     CommunityPost p = posts.findById(q.getPostId())
@@ -42,5 +49,9 @@ public class AnswerService {
     q.setSolved(true);
     q.setAcceptedAnswerId(answerId);
     questions.save(q);
+
+    List<Long> tagIds = postTags.findByPostId(q.getPostId()).stream()
+        .map(CommunityPostTag::getTagId).toList();
+    reputation.applyAcceptance(a.getAuthorId(), p.getAuthorId(), "ANSWER", answerId, tagIds);
   }
 }
