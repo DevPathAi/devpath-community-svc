@@ -31,6 +31,9 @@ public class VoteService {
   public void votePost(long userId, long postId, int value) {
     validate(value);
     CommunityPost p = posts.findById(postId).orElseThrow(() -> new NotFoundException("post " + postId));
+    if (p.getAuthorId() != null && p.getAuthorId() == userId) {
+      throw new ForbiddenException("자기 글에는 투표할 수 없습니다");
+    }
     // 게이트: 질문 upvote는 평판 15 이상
     if (value == 1 && reputation.reputationOf(userId) < RepPoints.LVL_UPVOTE_QUESTION) {
       throw new ForbiddenException("질문 upvote는 평판 " + RepPoints.LVL_UPVOTE_QUESTION + " 이상 필요");
@@ -58,6 +61,9 @@ public class VoteService {
     validate(value);
     CommunityAnswer a = answers.findById(answerId)
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
+    if (a.getAuthorId() != null && a.getAuthorId() == userId) {
+      throw new ForbiddenException("자기 답변에는 투표할 수 없습니다");
+    }
     // 게이트: 답변 downvote는 평판 125 이상
     if (value == -1 && reputation.reputationOf(userId) < RepPoints.LVL_DOWNVOTE_ANSWER) {
       throw new ForbiddenException("답변 downvote는 평판 " + RepPoints.LVL_DOWNVOTE_ANSWER + " 이상 필요");
