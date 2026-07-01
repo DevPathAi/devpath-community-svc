@@ -17,4 +17,12 @@ public interface ReputationEventRepository extends JpaRepository<ReputationEvent
       where e.userId = :userId and e.reason in ('UPVOTE_Q','UPVOTE_A') and e.createdAt >= :since
       """)
   int sumUpvoteGainSince(@Param("userId") Long userId, @Param("since") Instant since);
+
+  /** 투표자(actor)가 작성자(user)의 서로 다른 글을 upvote한 개수(실가산분만, 역산 제외). 담합 탐지용. */
+  @Query("""
+      select count(distinct e.sourceId) from ReputationEvent e
+      where e.actorId = :actorId and e.userId = :userId
+        and e.reason in ('UPVOTE_Q','UPVOTE_A') and e.delta > 0
+      """)
+  long countDistinctUpvotedSourcesByActorToUser(@Param("actorId") Long actorId, @Param("userId") Long userId);
 }
