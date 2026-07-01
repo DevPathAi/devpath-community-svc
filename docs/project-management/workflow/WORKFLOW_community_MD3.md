@@ -11,5 +11,5 @@
 ## Step 3: 평판 기초
 ### 3.1 평판·스트릭
 - [x] 평판 엔진(upvote/downvote/채택) + 태그별 평판(user_tag_reputation) — **Build 1 완료**(2026-06-30, PR #13 / shared 스키마 #30). 가산 +5/+10·채택 +15/+2·downvote −2/−1·투표변경 역산
-- [ ] 레벨별 권한(15/125/500/1000) + Bronze 배지 9종 + 일일 +40 상한·sockpuppet 탐지 — **부분(Build 1)**: 게이트 15/125 ✅·일일 +40 상한 ✅. **후속**: 게이트 500/1000, Bronze 배지 9종(Build 2), sockpuppet 탐지·자기 글 투표 금지(Build 3)
+- [ ] 레벨별 권한(15/125/500/1000) + Bronze 배지 9종 + 일일 +40 상한·sockpuppet 탐지 — **부분(Build 1+2)**: 게이트 15/125 ✅·일일 +40 상한 ✅(B1) · **Bronze 배지 엔진 ✅(B2, 2026-06-30, PR #15 / shared 스키마 #31)** — 9종 시드, 신호 있는 6종 트리거 결선(FIRST_QUESTION·FIRST_ANSWER·STUDENT·TEACHER·CRITIC·PHILANTHROPIST) + 멱등 수여 + `community.badge.awarded` outbox + 조회 API. **후속**: 게이트 500/1000, 배지 3종 dormant(FIRST_STEP·EDITOR·COMMUNITY 시드만, 상위 기능 도입 시 결선)·Silver/Gold, sockpuppet 탐지·자기 글 투표 금지(Build 3)
 - [ ] 스트릭(TZ)·주간 리포트 배치·3일 미접속 AI 제안·선호 시간대 푸시
