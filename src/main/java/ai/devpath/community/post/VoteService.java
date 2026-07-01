@@ -1,5 +1,6 @@
 package ai.devpath.community.post;
 
+import ai.devpath.community.abuse.CollusionDetector;
 import ai.devpath.community.badge.BadgeCode;
 import ai.devpath.community.badge.BadgeService;
 import ai.devpath.community.reputation.RepPoints;
@@ -17,20 +18,25 @@ public class VoteService {
   private final CommunityPostTagRepository postTags;
   private final ReputationService reputation;
   private final BadgeService badgeService;
+  private final CollusionDetector collusionDetector;
 
   public VoteService(CommunityVoteRepository votes, CommunityPostRepository posts,
       CommunityAnswerRepository answers, CommunityQuestionRepository questions,
       CommunityPostTagRepository postTags, ReputationService reputation,
-      BadgeService badgeService) {
+      BadgeService badgeService, CollusionDetector collusionDetector) {
     this.votes = votes; this.posts = posts; this.answers = answers;
     this.questions = questions; this.postTags = postTags; this.reputation = reputation;
     this.badgeService = badgeService;
+    this.collusionDetector = collusionDetector;
   }
 
   @Transactional
   public void votePost(long userId, long postId, int value) {
     validate(value);
     CommunityPost p = posts.findById(postId).orElseThrow(() -> new NotFoundException("post " + postId));
+    if (p.getAuthorId() != null && p.getAuthorId() == userId) {
+      throw new ForbiddenException("자기 글에는 투표할 수 없습니다");
+    }
     // 게이트: 질문 upvote는 평판 15 이상
     if (value == 1 && reputation.reputationOf(userId) < RepPoints.LVL_UPVOTE_QUESTION) {
       throw new ForbiddenException("질문 upvote는 평판 " + RepPoints.LVL_UPVOTE_QUESTION + " 이상 필요");
@@ -41,7 +47,7 @@ public class VoteService {
     List<Long> tagIds = postTags.findByPostId(postId).stream().map(CommunityPostTag::getTagId).toList();
     reputation.applyVote(p.getAuthorId(), userId, "POST", postId, oldValue, value, tagIds);
     // 배지: 순점수 +1 도달 → 글 작성자 STUDENT, downvote 행사 → 투표자 CRITIC
-    // 자기 글 투표로도 획득 가능 — 자기투표/sockpuppet 게이팅은 Build 3에서 정합.
+    // 자기투표는 Build 3에서 금지됨(위 가드) — 담합은 아래 CollusionDetector가 기록.
     if (p.getUpvoteCount() - p.getDownvoteCount() >= 1) {
       badgeService.award(p.getAuthorId(), BadgeCode.STUDENT, "POST", postId);
     }
@@ -51,6 +57,9 @@ public class VoteService {
     if (reputation.reputationOf(p.getAuthorId()) >= RepPoints.LVL_UPVOTE_QUESTION) {
       badgeService.award(p.getAuthorId(), BadgeCode.PHILANTHROPIST, "POST", postId);
     }
+    if (value == 1) {
+      collusionDetector.checkOnUpvote(userId, p.getAuthorId(), "POST", postId);
+    }
   }
 
   @Transactional
@@ -58,6 +67,9 @@ public class VoteService {
     validate(value);
     CommunityAnswer a = answers.findById(answerId)
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
+    if (a.getAuthorId() != null && a.getAuthorId() == userId) {
+      throw new ForbiddenException("자기 답변에는 투표할 수 없습니다");
+    }
     // 게이트: 답변 downvote는 평판 125 이상
     if (value == -1 && reputation.reputationOf(userId) < RepPoints.LVL_DOWNVOTE_ANSWER) {
       throw new ForbiddenException("답변 downvote는 평판 " + RepPoints.LVL_DOWNVOTE_ANSWER + " 이상 필요");
@@ -72,7 +84,7 @@ public class VoteService {
         .map(CommunityPostTag::getTagId).toList();
     reputation.applyVote(a.getAuthorId(), userId, "ANSWER", answerId, oldValue, value, tagIds);
     // 배지: 답변 순점수 +1 도달 → 답변 작성자 TEACHER, downvote 행사 → 투표자 CRITIC
-    // 자기 글 투표로도 획득 가능 — 자기투표/sockpuppet 게이팅은 Build 3에서 정합.
+    // 자기투표는 Build 3에서 금지됨(위 가드) — 담합은 아래 CollusionDetector가 기록.
     int answerNet = a.getUpvoteCount()
         - votes.countByTargetTypeAndTargetIdAndValue("ANSWER", answerId, (short) -1);
     if (answerNet >= 1) {
@@ -83,6 +95,9 @@ public class VoteService {
     }
     if (reputation.reputationOf(a.getAuthorId()) >= RepPoints.LVL_UPVOTE_QUESTION) {
       badgeService.award(a.getAuthorId(), BadgeCode.PHILANTHROPIST, "ANSWER", answerId);
+    }
+    if (value == 1) {
+      collusionDetector.checkOnUpvote(userId, a.getAuthorId(), "ANSWER", answerId);
     }
   }
 
