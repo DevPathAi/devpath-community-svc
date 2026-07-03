@@ -51,6 +51,9 @@ class VoteMockMvcTest {
         .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
     long qid = com.jayway.jsonpath.JsonPath.parse(qBody).read("$.id", Long.class);
     mvc.perform(post("/community/posts/" + qid + "/vote").with(jwt().jwt(j -> j.subject("304")))
-        .contentType("application/json").content("{\"value\":5}")).andExpect(status().isBadRequest());
+        .contentType("application/json").content("{\"value\":5}"))
+        .andExpect(status().isBadRequest())
+        // 스펙 §3.4 공통 에러 envelope(공용 ApiExceptionHandler).
+        .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
   }
 }

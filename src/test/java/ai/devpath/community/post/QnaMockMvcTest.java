@@ -70,7 +70,9 @@ class QnaMockMvcTest {
 
     // 비OWNER(작성자 200 아님) 채택 시도 → 403
     mvc.perform(post("/community/answers/" + aid + "/accept").with(jwt().jwt(j -> j.subject("999"))))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        // 스펙 §3.4 공통 에러 envelope(공용 ApiExceptionHandler).
+        .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
 
     // OWNER(200) 채택 → 200, 이후 상세에서 solved=true
     mvc.perform(post("/community/answers/" + aid + "/accept").with(jwt().jwt(j -> j.subject("200"))))
