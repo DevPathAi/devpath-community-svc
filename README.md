@@ -6,12 +6,12 @@
 
 | 모듈 | 역할 |
 |------|------|
-| post | 5개 게시판 (Q&A / 자유 / 프로젝트 / 스터디 / 수료자 라운지) |
-| reputation | 평판 이벤트 엔진 + 태그별 평판 + sockpuppet 탐지 |
-| badge | Bronze/Silver/Gold 자동 수여 |
-| moderation | AI 모더레이션 + 신고 + 제재 + 이의제기 |
-| learning-context | 학습 맥락 스냅샷 수집/렌더 |
-| ai-seed | AI 시드 답변 파이프라인 (Claude) |
+| post | Q&A 게시판(질문/답변/투표/태그) — 구현됨. 자유·프로젝트·스터디·수료자 라운지는 목표(TARGET) |
+| reputation | 평판 이벤트 엔진 + 태그별 평판 — 구현됨(Build 1) |
+| badge | Bronze 배지 자동 수여 — 구현됨(Build 2). Silver/Gold는 목표(TARGET) |
+| abuse | 자기 투표 금지 + 행동 기반 담합 탐지(기록만) — 구현됨(Build 3) |
+| moderation | AI 모더레이션 + 신고 + 제재 + 이의제기 — 목표(TARGET), 아직 미구현 |
+| learning-context | **별도 서비스 [devpath-lcs-svc](https://github.com/DevPathAi/devpath-lcs-svc)로 분리 구현됨**(이 레포에는 없음) |
 
 설계 문서: [documents/20_커뮤니티_기능_설계서](https://github.com/DevPathAi/documents/blob/main/20_커뮤니티_기능_설계서.md)
 

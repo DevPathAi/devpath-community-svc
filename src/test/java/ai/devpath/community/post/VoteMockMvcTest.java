@@ -4,6 +4,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import ai.devpath.community.reputation.ReputationService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class VoteMockMvcTest {
   @Autowired MockMvc mvc;
+  @Autowired ReputationService reputation;
 
   @Test
   void upvotePostAccumulatesAndIsIdempotentPerUser() throws Exception {
@@ -23,6 +26,10 @@ class VoteMockMvcTest {
         .contentType("application/json").content("{\"title\":\"vote\",\"bodyMd\":\"b\",\"tags\":[]}"))
         .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
     long qid = com.jayway.jsonpath.JsonPath.parse(qBody).read("$.id", Long.class);
+
+    // 질문 upvote 게이트(평판 15 이상) 충족 — 투표자에게 사전 평판 부여(테스트 의도=누적·멱등 검증).
+    reputation.applyAcceptance(301L, 9999L, "ANSWER", 9001L, List.of());
+    reputation.applyAcceptance(302L, 9999L, "ANSWER", 9002L, List.of());
 
     mvc.perform(post("/community/posts/" + qid + "/vote").with(jwt().jwt(j -> j.subject("301")))
         .contentType("application/json").content("{\"value\":1}")).andExpect(status().isOk());
@@ -44,6 +51,9 @@ class VoteMockMvcTest {
         .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
     long qid = com.jayway.jsonpath.JsonPath.parse(qBody).read("$.id", Long.class);
     mvc.perform(post("/community/posts/" + qid + "/vote").with(jwt().jwt(j -> j.subject("304")))
-        .contentType("application/json").content("{\"value\":5}")).andExpect(status().isBadRequest());
+        .contentType("application/json").content("{\"value\":5}"))
+        .andExpect(status().isBadRequest())
+        // 스펙 §3.4 공통 에러 envelope(공용 ApiExceptionHandler).
+        .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
   }
 }
