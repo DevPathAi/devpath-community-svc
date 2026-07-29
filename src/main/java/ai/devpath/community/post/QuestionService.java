@@ -18,6 +18,7 @@ public class QuestionService {
   private final CommunityPostRepository posts;
   private final CommunityQuestionRepository questions;
   private final CommunityAnswerRepository answers;
+  private final CommunityCommentRepository comments;
   private final CommunityTagRepository tags;
   private final CommunityPostTagRepository postTags;
   private final OutboxRepository outbox;
@@ -25,10 +26,11 @@ public class QuestionService {
   private final BadgeService badgeService;
 
   public QuestionService(CommunityPostRepository posts, CommunityQuestionRepository questions,
-      CommunityAnswerRepository answers, CommunityTagRepository tags,
-      CommunityPostTagRepository postTags, OutboxRepository outbox, JsonMapper jsonMapper,
-      BadgeService badgeService) {
+      CommunityAnswerRepository answers, CommunityCommentRepository comments,
+      CommunityTagRepository tags, CommunityPostTagRepository postTags, OutboxRepository outbox,
+      JsonMapper jsonMapper, BadgeService badgeService) {
     this.posts = posts; this.questions = questions; this.answers = answers;
+    this.comments = comments;
     this.tags = tags; this.postTags = postTags;
     this.outbox = outbox; this.jsonMapper = jsonMapper;
     this.badgeService = badgeService;
@@ -85,11 +87,21 @@ public class QuestionService {
 
   @Transactional(readOnly = true)
   public List<PostSummaryView> list(String board, String tag, String sort) {
-    String b = (board == null || board.isBlank()) ? "QNA" : board;
-    return posts.findBoardNewest(b).stream()
-        .map(p -> new PostSummaryView(p.getId(), p.getTitle(), p.getAuthorId(),
-            questions.findById(p.getId()).map(CommunityQuestion::isSolved).orElse(false),
-            p.getUpvoteCount(), answers.countByQuestionId(p.getId())))
+    List<CommunityPost> found = (board == null || board.isBlank() || "ALL".equals(board))
+        ? posts.findAllBoardsNewest()
+        : posts.findBoardNewest(board);
+    return found.stream()
+        .map(p -> {
+          boolean isQna = "QNA".equals(p.getBoardType());
+          int replyCount = isQna
+              ? (int) answers.countByQuestionId(p.getId())
+              : (int) comments.countByPostId(p.getId());
+          boolean solved = isQna
+              ? questions.findById(p.getId()).map(CommunityQuestion::isSolved).orElse(false)
+              : false;
+          return new PostSummaryView(p.getId(), p.getBoardType(), p.getTitle(),
+              p.getAuthorId(), solved, p.getUpvoteCount(), replyCount);
+        })
         .collect(Collectors.toList());
   }
 
