@@ -8,5 +8,9 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
     + "order by p.id desc")
   java.util.List<CommunityPost> findBoardNewest(String board);
 
+  @org.springframework.data.jpa.repository.Query(
+    "select p from CommunityPost p where p.status = 'PUBLISHED' order by p.id desc")
+  java.util.List<CommunityPost> findAllBoardsNewest();
+
   long countByAuthorId(Long authorId);
 }
