@@ -100,7 +100,8 @@ public class QuestionService {
               ? questions.findById(p.getId()).map(CommunityQuestion::isSolved).orElse(false)
               : false;
           return new PostSummaryView(p.getId(), p.getBoardType(), p.getTitle(),
-              p.getAuthorId(), solved, p.getUpvoteCount(), replyCount);
+              p.getAuthorId(), solved, p.getUpvoteCount(), replyCount,
+              Excerpts.from(p.getBodyMd(), 140));
         })
         .collect(Collectors.toList());
   }
