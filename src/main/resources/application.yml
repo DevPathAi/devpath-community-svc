@@ -23,6 +23,8 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
 
 devpath:
   auth:
@@ -30,6 +32,8 @@ devpath:
   ai-svc:
     base-url: ${AI_SVC_URI:http://localhost:8081}
     timeout: ${AI_SVC_TIMEOUT:PT5S}
+  search:
+    index-name: ${SEARCH_INDEX_NAME:community_posts}
 
 server:
   port: 8080
