@@ -24,16 +24,18 @@ public class QuestionService {
   private final OutboxRepository outbox;
   private final JsonMapper jsonMapper;
   private final BadgeService badgeService;
+  private final PostIndexEventPublisher postIndexEvents;
 
   public QuestionService(CommunityPostRepository posts, CommunityQuestionRepository questions,
       CommunityAnswerRepository answers, CommunityCommentRepository comments,
       CommunityTagRepository tags, CommunityPostTagRepository postTags, OutboxRepository outbox,
-      JsonMapper jsonMapper, BadgeService badgeService) {
+      JsonMapper jsonMapper, BadgeService badgeService, PostIndexEventPublisher postIndexEvents) {
     this.posts = posts; this.questions = questions; this.answers = answers;
     this.comments = comments;
     this.tags = tags; this.postTags = postTags;
     this.outbox = outbox; this.jsonMapper = jsonMapper;
     this.badgeService = badgeService;
+    this.postIndexEvents = postIndexEvents;
   }
 
   @Transactional
@@ -54,7 +56,7 @@ public class QuestionService {
     }
     publishQuestionPosted(userId, p.getId(), req);
     badgeService.award(userId, BadgeCode.FIRST_QUESTION, "POST", p.getId());
-    enqueueIndexEvent(p.getId(), false);
+    postIndexEvents.publish(p.getId(), false);
     return detail(p.getId());
   }
 
@@ -67,17 +69,6 @@ public class QuestionService {
     entry.setAggregateId(String.valueOf(postId));
     entry.setEventType(CommunityQuestionPostedEvent.EVENT_TYPE);
     entry.setPayload(jsonMapper.writeValueAsString(event));
-    entry.setCreatedAt(Instant.now());
-    outbox.save(entry);
-  }
-
-  /** 검색 색인 갱신 이벤트. Outbox 에 쌓아 두면 릴레이가 Kafka 로 발행한다(2초 주기). */
-  private void enqueueIndexEvent(long postId, boolean deleted) {
-    OutboxEntry entry = new OutboxEntry();
-    entry.setAggregateType("community_post");
-    entry.setAggregateId(String.valueOf(postId));
-    entry.setEventType("community.post.changed");
-    entry.setPayload(jsonMapper.writeValueAsString(Map.of("postId", postId, "deleted", deleted)));
     entry.setCreatedAt(Instant.now());
     outbox.save(entry);
   }

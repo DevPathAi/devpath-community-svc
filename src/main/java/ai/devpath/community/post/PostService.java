@@ -17,10 +17,13 @@ public class PostService {
   private final CommunityTagRepository tags;
   private final CommunityPostTagRepository postTags;
   private final CommunityCommentRepository comments;
+  private final PostIndexEventPublisher postIndexEvents;
 
   public PostService(CommunityPostRepository posts, CommunityTagRepository tags,
-      CommunityPostTagRepository postTags, CommunityCommentRepository comments) {
+      CommunityPostTagRepository postTags, CommunityCommentRepository comments,
+      PostIndexEventPublisher postIndexEvents) {
     this.posts = posts; this.tags = tags; this.postTags = postTags; this.comments = comments;
+    this.postIndexEvents = postIndexEvents;
   }
 
   @Transactional
@@ -40,6 +43,7 @@ public class PostService {
       });
       postTags.save(new CommunityPostTag(p.getId(), tag.getId()));
     }
+    postIndexEvents.publish(p.getId(), false);
     return postDetail(p.getId());
   }
 
