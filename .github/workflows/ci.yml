@@ -25,6 +25,25 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # 커뮤니티 검색 통합 테스트용. nori(한국어 형태소) 플러그인이 설치된 자체 이미지로,
+      # 공식 이미지에는 nori 가 없고 services: 는 컨테이너 내부에서 명령을 실행할 수 없다.
+      # 테스트는 application-test.yml 의 ES_URIS 기본값(localhost:9200)으로 접속한다.
+      elasticsearch:
+        image: ghcr.io/devpathai/devpath-elasticsearch:9.2.8
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -sf http://localhost:9200 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
