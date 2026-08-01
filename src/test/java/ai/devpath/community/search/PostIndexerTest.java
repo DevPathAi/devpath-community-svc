@@ -9,6 +9,8 @@ import ai.devpath.community.post.CommunityPost;
 import ai.devpath.community.post.CommunityPostRepository;
 import ai.devpath.community.post.CommunityPostTag;
 import ai.devpath.community.post.CommunityPostTagRepository;
+import ai.devpath.community.post.CommunityQuestion;
+import ai.devpath.community.post.CommunityQuestionRepository;
 import ai.devpath.community.post.CommunityTag;
 import ai.devpath.community.post.CommunityTagRepository;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -31,6 +33,7 @@ class PostIndexerTest {
   @Autowired SearchIndexProperties properties;
   @Autowired ElasticsearchClient client;
   @Autowired CommunityPostRepository posts;
+  @Autowired CommunityQuestionRepository questions;
   @Autowired CommunityPostTagRepository postTags;
   @Autowired CommunityTagRepository tags;
 
@@ -100,6 +103,62 @@ class PostIndexerTest {
     GetResponse<Map> got = client.get(
         g -> g.index(properties.getIndexName()).id(String.valueOf(p.getId())), Map.class);
     assertFalse(got.found(), "PUBLISHED 가 아닌 글은 ES 에 남으면 안 된다");
+  }
+
+  @Test
+  void indexSolvedQnaSetsIsSolvedKeyToTrue() throws IOException {
+    CommunityPost p = savePost("QNA", "PUBLISHED", "해결된 질문", "본문");
+    CommunityQuestion q = new CommunityQuestion();
+    q.setPostId(p.getId());
+    q.setSolved(true);
+    questions.save(q);
+
+    indexer.index(p.getId());
+    refresh();
+
+    GetResponse<Map> got = client.get(
+        g -> g.index(properties.getIndexName()).id(String.valueOf(p.getId())), Map.class);
+    assertTrue(got.found(), "색인된 문서가 조회돼야 한다");
+    Map<?, ?> source = got.source();
+    assertTrue(source.containsKey("isSolved"), "source에 'isSolved' 키가 있어야 한다(getter가 solved로 벗겨지지 않아야 함)");
+    assertFalse(source.containsKey("solved"), "'solved' 라는 키로 잘못 직렬화되면 안 된다");
+    assertEquals(true, source.get("isSolved"), "해결된 QNA 글은 isSolved=true 여야 한다");
+  }
+
+  @Test
+  void indexNonQnaLeavesIsSolvedKeyFalse() throws IOException {
+    CommunityPost p = savePost("FREE", "PUBLISHED", "자유글", "본문");
+
+    indexer.index(p.getId());
+    refresh();
+
+    GetResponse<Map> got = client.get(
+        g -> g.index(properties.getIndexName()).id(String.valueOf(p.getId())), Map.class);
+    assertTrue(got.found(), "색인된 문서가 조회돼야 한다");
+    Map<?, ?> source = got.source();
+    assertTrue(source.containsKey("isSolved"), "source에 'isSolved' 키가 있어야 한다");
+    assertFalse(source.containsKey("solved"), "'solved' 라는 키로 잘못 직렬화되면 안 된다");
+    assertEquals(false, source.get("isSolved"), "비-QNA 글은 항상 isSolved=false 여야 한다");
+  }
+
+  @Test
+  void indexRemovesDocumentWhenPublishedPostBecomesDraft() throws IOException {
+    CommunityPost p = savePost("FREE", "PUBLISHED", "발행 후 비공개 전환", "본문");
+
+    indexer.index(p.getId());
+    refresh();
+    GetResponse<Map> publishedGet = client.get(
+        g -> g.index(properties.getIndexName()).id(String.valueOf(p.getId())), Map.class);
+    assertTrue(publishedGet.found(), "PUBLISHED 상태로 색인된 직후에는 문서가 있어야 한다");
+
+    p.setStatus("DRAFT");
+    posts.save(p);
+
+    indexer.index(p.getId());
+    refresh();
+    GetResponse<Map> draftGet = client.get(
+        g -> g.index(properties.getIndexName()).id(String.valueOf(p.getId())), Map.class);
+    assertFalse(draftGet.found(), "PUBLISHED -> DRAFT 로 바뀐 뒤 재색인하면 ES 문서가 지워져야 한다");
   }
 
   private CommunityPost savePost(String board, String status, String title, String bodyMd) {
