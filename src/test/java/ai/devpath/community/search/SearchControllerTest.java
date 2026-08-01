@@ -78,6 +78,22 @@ class SearchControllerTest {
   }
 
   @Test
+  void negativePageIsRejectedAsBadRequest() throws Exception {
+    mvc.perform(get("/community/search").param("q", "x").param("page", "-1")
+            .with(jwt().jwt(j -> j.subject("1"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+  }
+
+  @Test
+  void nonPositiveSizeIsRejectedAsBadRequest() throws Exception {
+    mvc.perform(get("/community/search").param("q", "x").param("size", "0")
+            .with(jwt().jwt(j -> j.subject("1"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+  }
+
+  @Test
   void esFailureReturns5xxErrorEnvelope() throws Exception {
     when(searchService.search(any(), any(), any(), any(), any(), anyInt(), anyInt()))
         .thenThrow(new RuntimeException("ES 다운"));

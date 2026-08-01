@@ -201,6 +201,34 @@ class PostSearchServiceTest {
   }
 
   @Test
+  void boardAllIsTreatedAsNoFilterSameAsQuestionServiceList() throws IOException {
+    // QuestionService.list()의 기존 계약(board == null || blank || "ALL" -> 전체)과 동일해야 한다.
+    String kw = uniqueWord();
+    CommunityPost qna = savePost("QNA", "PUBLISHED", kw + " 질문", "내용");
+    CommunityPost free = savePost("FREE", "PUBLISHED", kw + " 자유글", "내용");
+    indexAndRefresh(qna.getId());
+    indexAndRefresh(free.getId());
+
+    SearchResponse resp = searchService.search(kw, "ALL", null, null, "relevance", 0, 20);
+
+    List<Long> ids = ids(resp);
+    assertTrue(ids.contains(qna.getId()), "board=ALL은 QNA도 포함해야 한다");
+    assertTrue(ids.contains(free.getId()), "board=ALL은 FREE도 포함해야 한다");
+  }
+
+  @Test
+  void sizeAboveMaxIsClampedTo100() throws IOException {
+    String kw = uniqueWord();
+    CommunityPost p = savePost("FREE", "PUBLISHED", kw + " 제목", "내용");
+    indexAndRefresh(p.getId());
+
+    SearchResponse resp = searchService.search(kw, null, null, null, "relevance", 0, 1000);
+
+    assertTrue(resp.items().size() <= 100, "items는 상한(100)을 넘으면 안 된다");
+    assertEquals(100, resp.size(), "응답의 size 필드는 실제 적용된(클램프된) 값을 반영해야 한다");
+  }
+
+  @Test
   void unpublishedPostsAreExcluded() throws IOException {
     String kw = uniqueWord();
     CommunityPost draft = savePost("FREE", "DRAFT", kw + " 초안", "내용");

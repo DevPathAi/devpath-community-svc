@@ -34,6 +34,12 @@ public class SearchController {
     if (q == null || q.isBlank()) {
       throw new IllegalArgumentException("검색어(q)는 필수입니다.");
     }
+    if (page < 0) {
+      throw new IllegalArgumentException("page는 0 이상이어야 합니다.");
+    }
+    if (size <= 0) {
+      throw new IllegalArgumentException("size는 1 이상이어야 합니다.");
+    }
     return ResponseEntity.ok(searchService.search(q, board, tag, solved, sort, page, size));
   }
 }

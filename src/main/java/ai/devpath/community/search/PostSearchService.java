@@ -32,6 +32,8 @@ public class PostSearchService {
   private static final String PRE_TAG = "<em>";
   private static final String POST_TAG = "</em>";
   private static final String HIGHLIGHT_JOIN = " … ";
+  /** 검색 API가 외부에서 키울 수 있는 DB N+1(summariesByIds 조립) 규모를 제한하는 상한. */
+  static final int MAX_SIZE = 100;
 
   private final ElasticsearchClient client;
   private final SearchIndexProperties properties;
@@ -46,6 +48,7 @@ public class PostSearchService {
 
   public SearchResponse search(String q, String board, String tag, Boolean solved, String sort,
       int page, int size) {
+    int effectiveSize = Math.min(size, MAX_SIZE);
     List<Query> filters = buildFilters(board, tag, solved);
     try {
       co.elastic.clients.elasticsearch.core.SearchResponse<Map> resp = client.search(s -> {
@@ -57,8 +60,8 @@ public class PostSearchService {
                 .preTags(PRE_TAG)
                 .postTags(POST_TAG)
                 .fields(NamedValue.of("bodyMd", HighlightField.of(hf -> hf))))
-            .from(page * size)
-            .size(size);
+            .from(page * effectiveSize)
+            .size(effectiveSize);
         if ("latest".equals(sort)) {
           s.sort(so -> so.field(f -> f.field("createdAt").order(SortOrder.Desc)));
         }
@@ -83,17 +86,20 @@ public class PostSearchService {
               highlights.getOrDefault(sm.id(), sm.excerpt())))
           .collect(Collectors.toList());
 
-      return new SearchResponse(items, total, page, size);
+      return new SearchResponse(items, total, page, effectiveSize);
     } catch (IOException e) {
       throw new UncheckedIOException("ES 검색 실패 q=" + q, e);
     }
   }
 
-  /** {@code status=PUBLISHED} 고정 필터 + 파라미터가 있을 때만 boardType/tags/isSolved 필터를 더한다. */
+  /**
+   * {@code status=PUBLISHED} 고정 필터 + 파라미터가 있을 때만 boardType/tags/isSolved 필터를 더한다.
+   * {@code board="ALL"}은 {@link QuestionService#list}와 동일하게 "필터 없음"으로 취급한다.
+   */
   private List<Query> buildFilters(String board, String tag, Boolean solved) {
     List<Query> filters = new ArrayList<>();
     filters.add(Query.of(qb -> qb.term(t -> t.field("status").value("PUBLISHED"))));
-    if (board != null && !board.isBlank()) {
+    if (board != null && !board.isBlank() && !"ALL".equals(board)) {
       filters.add(Query.of(qb -> qb.term(t -> t.field("boardType").value(board))));
     }
     if (tag != null && !tag.isBlank()) {
