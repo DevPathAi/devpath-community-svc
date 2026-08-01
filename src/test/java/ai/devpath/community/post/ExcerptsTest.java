@@ -23,4 +23,20 @@ class ExcerptsTest {
     assertThat(Excerpts.from("   ", 140)).isEmpty();
     assertThat(Excerpts.from(null, 140)).isEmpty();
   }
+
+  @Test
+  void restoresEscapedLiteralAsteriskInsideBoldMarker() {
+    String body = "굵게 **a\\*b** 강조";
+    assertThat(Excerpts.from(body, 140)).isEqualTo("굵게 a*b 강조");
+  }
+
+  @Test
+  void restoresEscapedPeriod() {
+    assertThat(Excerpts.from("문장입니다\\. 끝", 140)).isEqualTo("문장입니다. 끝");
+  }
+
+  @Test
+  void restoresEscapedHashAndPlus() {
+    assertThat(Excerpts.from("C\\# 과 C\\+\\+", 140)).isEqualTo("C# 과 C++");
+  }
 }
