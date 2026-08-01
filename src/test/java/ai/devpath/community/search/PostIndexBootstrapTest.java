@@ -39,6 +39,13 @@ class PostIndexBootstrapTest {
     Property bodyMd = mappingProperties.get("bodyMd");
     assertTrue(bodyMd.isText(), "bodyMd 는 text 타입이어야 한다");
     assertEquals("nori_analyzer", bodyMd.text().analyzer());
+
+    assertTrue(mappingProperties.get("tags").isKeyword(), "tags 는 keyword 타입이어야 한다");
+    assertTrue(mappingProperties.get("boardType").isKeyword(), "boardType 은 keyword 타입이어야 한다");
+    assertTrue(mappingProperties.get("status").isKeyword(), "status 는 keyword 타입이어야 한다");
+    assertTrue(mappingProperties.get("authorId").isKeyword(), "authorId 는 keyword 타입이어야 한다");
+    assertTrue(mappingProperties.get("isSolved").isBoolean(), "isSolved 는 boolean 타입이어야 한다");
+    assertTrue(mappingProperties.get("createdAt").isDate(), "createdAt 은 date 타입이어야 한다");
   }
 
   @Test
