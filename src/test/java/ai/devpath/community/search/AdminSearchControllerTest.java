@@ -21,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
@@ -29,7 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * {@code POST /admin/community/reindex} 의 권한 계약을 검증한다.
+ * {@code POST /community/admin/reindex} 의 권한 계약을 검증한다.
  *
  * <p>{@code jwt()} 후처리기 대신 <b>실제 서명 JWT</b>를 보낸다. 후처리기는 authority 를 직접
  * 주입해 {@code SecurityConfig} 의 {@code role} 클레임 → {@code ROLE_*} 변환기를 건너뛰므로,
@@ -40,8 +41,11 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class AdminSearchControllerTest {
 
-  /** application-test.yml 의 devpath.auth.jwt-secret 과 동일해야 서명 검증을 통과한다. */
-  private static final String SECRET = "test-secret-please-change-min-32-bytes-long-0123456789";
+  /**
+   * 서명 키. 상수로 복사해 두면 {@code application-test.yml} 만 바꿨을 때 이 테스트가 원인을
+   * 알기 어려운 401 로 깨지므로, 설정에서 그대로 주입받는다.
+   */
+  @Value("${devpath.auth.jwt-secret}") String secret;
 
   @Autowired MockMvc mvc;
   @MockitoBean ReindexService reindexService;
@@ -51,7 +55,7 @@ class AdminSearchControllerTest {
   void reindexReturnsIndexedCountForAdmin() throws Exception {
     when(reindexService.reindexAll()).thenReturn(7);
 
-    mvc.perform(post("/admin/community/reindex")
+    mvc.perform(post("/community/admin/reindex")
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenWithRole("ADMIN")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.indexed").value(7));
@@ -59,7 +63,7 @@ class AdminSearchControllerTest {
 
   @Test
   void reindexIsForbiddenForNonAdminRole() throws Exception {
-    mvc.perform(post("/admin/community/reindex")
+    mvc.perform(post("/community/admin/reindex")
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenWithRole("LEARNER")))
         .andExpect(status().isForbidden());
 
@@ -68,7 +72,7 @@ class AdminSearchControllerTest {
 
   @Test
   void reindexIsForbiddenWhenRoleClaimIsMissing() throws Exception {
-    mvc.perform(post("/admin/community/reindex")
+    mvc.perform(post("/community/admin/reindex")
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenWithRole(null)))
         .andExpect(status().isForbidden());
 
@@ -76,7 +80,7 @@ class AdminSearchControllerTest {
   }
 
   /**
-   * {@code /admin/**} 보호를 위해 도입한 {@code role} 클레임 변환기가 <b>일반 경로</b>를 깨지
+   * {@code /community/admin/**} 보호를 위해 도입한 {@code role} 클레임 변환기가 <b>일반 경로</b>를 깨지
    * 않는지 확인한다. 기존 사용자 토큰에는 {@code role} 클레임이 없어 authority 가 비는데,
    * {@code anyRequest().authenticated()} 는 authority 가 아니라 인증 여부만 보므로 통과해야 한다.
    * (기존 컨트롤러 테스트는 {@code jwt()} 후처리기를 써 이 변환기를 우회하므로 여기서만 검증된다.)
@@ -93,7 +97,7 @@ class AdminSearchControllerTest {
 
   @Test
   void reindexIsUnauthorizedWithoutToken() throws Exception {
-    mvc.perform(post("/admin/community/reindex"))
+    mvc.perform(post("/community/admin/reindex"))
         .andExpect(status().isUnauthorized());
 
     verify(reindexService, never()).reindexAll();
@@ -109,7 +113,7 @@ class AdminSearchControllerTest {
       claims.claim("role", role);
     }
     SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims.build());
-    jwt.sign(new MACSigner(SECRET.getBytes(StandardCharsets.UTF_8)));
+    jwt.sign(new MACSigner(secret.getBytes(StandardCharsets.UTF_8)));
     return jwt.serialize();
   }
 }

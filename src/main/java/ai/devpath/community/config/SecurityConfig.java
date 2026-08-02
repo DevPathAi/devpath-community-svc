@@ -57,7 +57,11 @@ public class SecurityConfig {
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(authorize -> authorize
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-            .requestMatchers("/admin/**").hasRole("ADMIN")
+            // 실제 관리자 경로는 /community/admin/** 다(게이트웨이가 /admin/** 를 platform-svc 로
+            // 보내기 때문 — AdminSearchController 주석 참조). /admin/** 도 함께 막아 두는 것은
+            // 방어 목적이다: 라우팅이 바뀌어 이 서비스에 /admin/** 가 닿게 되더라도 무방비로
+            // 열리지 않는다.
+            .requestMatchers("/community/admin/**", "/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())
         .oauth2ResourceServer(rs -> rs.jwt(jwt -> jwt.jwtAuthenticationConverter(adminRoleConverter())));
     return http.build();
