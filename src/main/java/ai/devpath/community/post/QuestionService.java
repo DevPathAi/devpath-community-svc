@@ -24,16 +24,18 @@ public class QuestionService {
   private final OutboxRepository outbox;
   private final JsonMapper jsonMapper;
   private final BadgeService badgeService;
+  private final PostIndexEventPublisher postIndexEvents;
 
   public QuestionService(CommunityPostRepository posts, CommunityQuestionRepository questions,
       CommunityAnswerRepository answers, CommunityCommentRepository comments,
       CommunityTagRepository tags, CommunityPostTagRepository postTags, OutboxRepository outbox,
-      JsonMapper jsonMapper, BadgeService badgeService) {
+      JsonMapper jsonMapper, BadgeService badgeService, PostIndexEventPublisher postIndexEvents) {
     this.posts = posts; this.questions = questions; this.answers = answers;
     this.comments = comments;
     this.tags = tags; this.postTags = postTags;
     this.outbox = outbox; this.jsonMapper = jsonMapper;
     this.badgeService = badgeService;
+    this.postIndexEvents = postIndexEvents;
   }
 
   @Transactional
@@ -54,6 +56,7 @@ public class QuestionService {
     }
     publishQuestionPosted(userId, p.getId(), req);
     badgeService.award(userId, BadgeCode.FIRST_QUESTION, "POST", p.getId());
+    postIndexEvents.publish(p.getId(), false);
     return detail(p.getId());
   }
 
@@ -91,18 +94,36 @@ public class QuestionService {
         ? posts.findAllBoardsNewest()
         : posts.findBoardNewest(board);
     return found.stream()
-        .map(p -> {
-          boolean isQna = "QNA".equals(p.getBoardType());
-          int replyCount = isQna
-              ? (int) answers.countByQuestionId(p.getId())
-              : (int) comments.countByPostId(p.getId());
-          boolean solved = isQna
-              ? questions.findById(p.getId()).map(CommunityQuestion::isSolved).orElse(false)
-              : false;
-          return new PostSummaryView(p.getId(), p.getBoardType(), p.getTitle(),
-              p.getAuthorId(), solved, p.getUpvoteCount(), replyCount,
-              Excerpts.from(p.getBodyMd(), 140));
-        })
+        .map(this::toSummary)
+        .collect(Collectors.toList());
+  }
+
+  /** 글 목록을 표시용 요약으로 조립한다. QNA 는 답변 수·해결 여부, 그 외는 댓글 수를 센다. */
+  private PostSummaryView toSummary(CommunityPost p) {
+    boolean isQna = "QNA".equals(p.getBoardType());
+    int replyCount = isQna
+        ? (int) answers.countByQuestionId(p.getId())
+        : (int) comments.countByPostId(p.getId());
+    boolean solved = isQna
+        ? questions.findById(p.getId()).map(CommunityQuestion::isSolved).orElse(false)
+        : false;
+    return new PostSummaryView(p.getId(), p.getBoardType(), p.getTitle(),
+        p.getAuthorId(), solved, p.getUpvoteCount(), replyCount,
+        Excerpts.from(p.getBodyMd(), 140));
+  }
+
+  /** 검색 결과 조립용 — 입력 id 순서(관련도 순)를 그대로 보존한다. */
+  @Transactional(readOnly = true)
+  public List<PostSummaryView> summariesByIds(List<Long> ids) {
+    if (ids.isEmpty()) {
+      return List.of();
+    }
+    Map<Long, CommunityPost> byId = posts.findAllById(ids).stream()
+        .collect(Collectors.toMap(CommunityPost::getId, p -> p));
+    return ids.stream()
+        .map(byId::get)
+        .filter(Objects::nonNull)
+        .map(this::toSummary)
         .collect(Collectors.toList());
   }
 
