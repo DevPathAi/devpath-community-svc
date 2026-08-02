@@ -3,6 +3,11 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/devpath_citest}
     username: ${DB_USER:devpath}
     password: ${DB_PASSWORD:localdev}
+    hikari:
+      # @SpringBootTest 컨텍스트마다 별도 풀이 뜬다. 기본값(10)이면 컨텍스트가 늘어날수록
+      # postgres max_connections(100)를 넘겨 "FATAL: sorry, too many clients already" 로
+      # 컨텍스트 로드가 통째로 실패한다(신고 기능 추가로 실제 발생). ai-svc 선례와 같은 값.
+      maximum-pool-size: 4
   flyway:
     enabled: true
     locations: classpath:db/migration
