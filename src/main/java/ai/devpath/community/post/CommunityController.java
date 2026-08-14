@@ -26,16 +26,21 @@ public class CommunityController {
   private final TagService tagService;
   private final EmbeddingClient embeddingClient;
   private final SimilarQuestionMatcher similarQuestionMatcher;
+  private final PostService postService;
+  private final CommentService commentService;
 
   public CommunityController(QuestionService questionService, AnswerService answerService,
       VoteService voteService, TagService tagService, EmbeddingClient embeddingClient,
-      SimilarQuestionMatcher similarQuestionMatcher) {
+      SimilarQuestionMatcher similarQuestionMatcher,
+      PostService postService, CommentService commentService) {
     this.questionService = questionService;
     this.answerService = answerService;
     this.voteService = voteService;
     this.tagService = tagService;
     this.embeddingClient = embeddingClient;
     this.similarQuestionMatcher = similarQuestionMatcher;
+    this.postService = postService;
+    this.commentService = commentService;
   }
 
   @PostMapping("/questions")
@@ -82,6 +87,28 @@ public class CommunityController {
       @RequestParam(required = false) String tag,
       @RequestParam(required = false) String sort) {
     return ResponseEntity.ok(questionService.list(board, tag, sort));
+  }
+
+  @PostMapping("/posts")
+  public ResponseEntity<PostDetailView> createPost(
+      @AuthenticationPrincipal Jwt jwt, @RequestBody CreatePostRequest req) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(postService.createPost(uid(jwt), req));
+  }
+
+  @GetMapping("/posts/{id}")
+  public ResponseEntity<PostDetailView> postDetail(@PathVariable long id) {
+    return ResponseEntity.ok(postService.postDetail(id));
+  }
+
+  @PostMapping("/posts/{id}/comments")
+  public ResponseEntity<CommentView> addComment(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody CreateCommentRequest req) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(commentService.addComment(uid(jwt), id, req));
+  }
+
+  @GetMapping("/posts/{id}/comments")
+  public ResponseEntity<java.util.List<CommentView>> listComments(@PathVariable long id) {
+    return ResponseEntity.ok(commentService.listComments(id));
   }
 
   @PostMapping("/posts/{id}/vote")

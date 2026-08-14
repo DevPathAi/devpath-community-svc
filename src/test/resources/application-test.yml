@@ -3,6 +3,11 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/devpath_citest}
     username: ${DB_USER:devpath}
     password: ${DB_PASSWORD:localdev}
+    hikari:
+      # @SpringBootTest 컨텍스트마다 별도 풀이 뜬다. 기본값(10)이면 컨텍스트가 늘어날수록
+      # postgres max_connections(100)를 넘겨 "FATAL: sorry, too many clients already" 로
+      # 컨텍스트 로드가 통째로 실패한다(신고 기능 추가로 실제 발생). ai-svc 선례와 같은 값.
+      maximum-pool-size: 4
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -13,6 +18,8 @@ spring:
     consumer:
       group-id: devpath-community-test
       auto-offset-reset: earliest
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
 devpath:
   auth:
     jwt-secret: test-secret-please-change-min-32-bytes-long-0123456789
@@ -20,3 +27,6 @@ devpath:
     # 테스트 기본(미사용; SimilarQuestionApiTest는 EmbeddingClient를 mock으로 교체).
     base-url: http://localhost:9
     timeout: PT1S
+  search:
+    # 운영 인덱스(community_posts)와 격리된 테스트 전용 인덱스명.
+    index-name: community_posts_it
