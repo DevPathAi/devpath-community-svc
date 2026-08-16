@@ -8,6 +8,9 @@ group = "ai.devpath"
 version = "0.0.1-SNAPSHOT"
 description = "DevPath AI community services (post, reputation, badge, moderation)"
 
+val devpathSharedVersion = providers.gradleProperty("devpathSharedVersion").get()
+val devpathSharedCoordinate = "ai.devpath:devpath-shared:$devpathSharedVersion"
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
@@ -15,6 +18,9 @@ java {
 }
 
 repositories {
+	providers.gradleProperty("immutableSharedRepository").orNull?.let { repository ->
+		maven { url = uri(repository) }
+	}
 	mavenCentral()
 	maven {
 		url = uri("https://maven.pkg.github.com/DevPathAi/devpath-shared")
@@ -31,7 +37,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-	implementation("ai.devpath:devpath-shared:0.0.1-SNAPSHOT")
+	implementation(devpathSharedCoordinate)
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
@@ -59,4 +65,3 @@ dependencies {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
-
