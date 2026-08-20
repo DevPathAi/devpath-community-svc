@@ -16,6 +16,7 @@ public class CommunityAnswer {
   @Column(name = "is_accepted", nullable = false) private boolean accepted = false;
   @Column(name = "upvote_count", nullable = false) private int upvoteCount = 0;
   @Column(name = "created_at", insertable = false, updatable = false) private Instant createdAt;
+  @Column(nullable = false) private String status = ContentStatus.PUBLISHED;
   @Column(name = "updated_at", insertable = false, updatable = false) private Instant updatedAt;
 
   public Long getId() { return id; }
@@ -35,4 +36,6 @@ public class CommunityAnswer {
   public void setUpvoteCount(int upvoteCount) { this.upvoteCount = upvoteCount; }
   public Instant getCreatedAt() { return createdAt; }
   public Instant getUpdatedAt() { return updatedAt; }
+  public String getStatus() { return status; }
+  public void setStatus(String status) { this.status = status; }
 }
