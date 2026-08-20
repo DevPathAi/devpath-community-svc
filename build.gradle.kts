@@ -8,6 +8,11 @@ group = "ai.devpath"
 version = "0.0.1-SNAPSHOT"
 description = "DevPath AI community services (post, reputation, badge, moderation)"
 
+// shared 좌표. 기본값은 공용 SNAPSHOT 이고, 아직 SNAPSHOT 에 실리지 않은 마이그레이션을
+// 쓰는 동안에만 gradle.properties 가 개발용 좌표를 가리킨다.
+val devpathSharedVersion =
+	providers.gradleProperty("devpathSharedVersion").orElse("0.0.1-SNAPSHOT").get()
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
@@ -31,7 +36,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-	implementation("ai.devpath:devpath-shared:0.0.1-SNAPSHOT")
+	implementation("ai.devpath:devpath-shared:$devpathSharedVersion")
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
