@@ -30,6 +30,10 @@ public class CommentService {
 
   @Transactional(readOnly = true)
   public List<CommentView> listComments(long postId) {
+    // 부모가 비공개면 자식으로 우회 조회할 수 없어야 한다.
+    posts.findById(postId)
+        .filter(p -> ContentStatus.PUBLISHED.equals(p.getStatus()))
+        .orElseThrow(() -> new NotFoundException("post " + postId));
     return comments.findByPostIdOrderByCreatedAtAsc(postId).stream()
         .map(c -> new CommentView(c.getId(), c.getAuthorId(), c.getBodyMd(), c.getUpvoteCount(),
             c.getCreatedAt()))

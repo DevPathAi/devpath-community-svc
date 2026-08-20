@@ -76,6 +76,7 @@ public class QuestionService {
   @Transactional(readOnly = true)
   public QuestionDetailView detail(long postId) {
     CommunityPost p = posts.findById(postId)
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("question " + postId));
     CommunityQuestion q = questions.findById(postId)
         .orElseThrow(() -> new NotFoundException("question " + postId));

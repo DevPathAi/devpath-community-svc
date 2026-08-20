@@ -50,6 +50,7 @@ public class PostService {
   @Transactional(readOnly = true)
   public PostDetailView postDetail(long postId) {
     CommunityPost p = posts.findById(postId)
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("post " + postId));
     List<String> tagNames = tagNamesFor(postId);
     List<CommentView> commentViews = comments.findByPostIdOrderByCreatedAtAsc(postId).stream()
