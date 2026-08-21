@@ -221,7 +221,7 @@ class ContentMutationRaceTest {
   }
 
   @Test
-  void concurrentVotesFromTwoUsersSucceedAndKeepTheAggregate() {
+  void concurrentVotesFromTwoUsersDoNotLoseTheAggregate() {
     long author = 9541, voterA = 9542, voterB = 9543;
     long postId = tx.execute(st ->
         questionService.create(author, new CreateQuestionRequest("t", "b", List.of())).id());
