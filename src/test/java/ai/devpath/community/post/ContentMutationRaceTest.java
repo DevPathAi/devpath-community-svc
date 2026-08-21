@@ -238,4 +238,32 @@ class ContentMutationRaceTest {
         "SELECT downvote_count FROM community_posts WHERE id = ?", Integer.class, postId);
     assertThat(stored).as("락이 없으면 B 가 A 를 못 세어 1 이 저장된다").isEqualTo(2);
   }
+
+  /**
+   * ★콘텐츠 행 락으로는 못 막는 경쟁★ — 같은 작성자의 <b>서로 다른</b> 글에 동시에 투표가
+   * 들어오면 서로 다른 행을 잠그므로 둘 다 통과한다. 그런데 둘 다 그 작성자의 평판 행이
+   * 없다고 보고 각자 INSERT 한다.
+   *
+   * <p>{@code ReputationService.addTotal} 이 find-then-save 이기 때문이다. 신규 사용자일수록
+   * 잘 맞는다 — 생애 첫 평판 이벤트가 두 콘텐츠에서 동시에 나면 요청이 500 으로 끝난다.
+   */
+  @Test
+  void twoContentsOfTheSameAuthorCanRaceToCreateTheFirstReputationRow() {
+    long author = 9551, voterA = 9552, voterB = 9553;
+    long[] postIds = tx.execute(st -> new long[] {
+        questionService.create(author, new CreateQuestionRequest("t1", "b", List.of())).id(),
+        questionService.create(author, new CreateQuestionRequest("t2", "b", List.of())).id()});
+
+    Future<?>[] second = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      voteService.votePost(voterA, postIds[0], -1);   // 작성자 평판 행을 만들며 아직 커밋 전
+      second[0] = inAnotherTransaction(() -> voteService.votePost(voterB, postIds[1], -1));
+      assertStillInFlight(second[0]);
+    });                                                // 커밋 → 해제
+    awaitSuccess(second[0]);
+
+    assertThat(repOf(author))
+        .as("두 글에서 각각 -2 씩, 합쳐 -4 여야 한다(덮어쓰기가 아니라 누적)")
+        .isEqualTo(-4);
+  }
 }

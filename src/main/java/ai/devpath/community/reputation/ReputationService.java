@@ -123,16 +123,17 @@ public class ReputationService {
     return reputations.findByUserId(userId).map(UserReputation::getTotal).orElse(0);
   }
 
+  /**
+   * ★find-then-save 를 쓰지 않는다★ — 행이 없을 때 두 요청이 각자 INSERT 해
+   * {@code user_reputation_pkey} 를 위반하고(실측), 행이 있을 때는 둘 다 옛 총점을 읽어
+   * 나중 것이 앞의 가산을 덮는다. 콘텐츠 행 락으로도 못 막는다 — 같은 작성자의 <b>서로 다른</b>
+   * 콘텐츠에서 오는 요청은 서로 다른 행을 잠근다. 가산을 DB 안에서 원자적으로 끝낸다.
+   */
   private void addTotal(long userId, int delta) {
-    UserReputation r = reputations.findByUserId(userId).orElseGet(() -> new UserReputation(userId));
-    r.add(delta);
-    reputations.save(r);
+    reputations.addTotalAtomically(userId, delta);
   }
 
   private void addTag(long userId, long tagId, int delta) {
-    UserTagReputation t = tagReputations.findByUserIdAndTagId(userId, tagId)
-        .orElseGet(() -> new UserTagReputation(userId, tagId));
-    t.add(delta);
-    tagReputations.save(t);
+    tagReputations.addScoreAtomically(userId, tagId, delta);
   }
 }
