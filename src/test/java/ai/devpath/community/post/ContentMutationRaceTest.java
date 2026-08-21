@@ -215,4 +215,23 @@ class ContentMutationRaceTest {
         .hasCauseInstanceOf(NotFoundException.class);
     assertThat(repOf(author)).as("락이 없으면 -2 가 다시 붙는다").isZero();
   }
+
+  @Test
+  void concurrentVotesFromTwoUsersDoNotLoseTheAggregate() {
+    long author = 9541, voterA = 9542, voterB = 9543;
+    long postId = tx.execute(st ->
+        questionService.create(author, new CreateQuestionRequest("t", "b", List.of())).id());
+
+    Future<?>[] b = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      voteService.votePost(voterA, postId, -1);   // A 의 표, 아직 커밋 전
+      b[0] = inAnotherTransaction(() -> voteService.votePost(voterB, postId, -1));
+      assertStillInFlight(b[0]);
+    });                                            // 커밋 → 해제
+    awaitSuccess(b[0]);
+
+    Integer stored = jdbc.queryForObject(
+        "SELECT downvote_count FROM community_posts WHERE id = ?", Integer.class, postId);
+    assertThat(stored).as("락이 없으면 B 가 A 를 못 세어 1 이 저장된다").isEqualTo(2);
+  }
 }
