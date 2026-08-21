@@ -76,7 +76,10 @@ public class PostService {
     if (req.title() == null || req.title().isBlank()) {
       throw new IllegalArgumentException("title must not be blank");
     }
-    CommunityPost p = posts.findById(postId)
+    // ★수정도 잠근다★ — @DynamicUpdate 가 없어 flush 는 전 컬럼 UPDATE 다. 잠그지 않으면
+    // 내리기와 겹칠 때 읽어 둔 stale PUBLISHED 가 HIDDEN 을 되돌려 쓰고(모더레이션 우회),
+    // 아래 deleted=false 색인 이벤트가 검색에도 되살린다(실측 red).
+    CommunityPost p = posts.findByIdForUpdate(postId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("post " + postId));
     if (p.getAuthorId() == null || p.getAuthorId() != userId) {

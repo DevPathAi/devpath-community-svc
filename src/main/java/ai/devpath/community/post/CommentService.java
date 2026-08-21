@@ -54,7 +54,8 @@ public class CommentService {
     if (req.bodyMd() == null || req.bodyMd().isBlank()) {
       throw new IllegalArgumentException("bodyMd must not be blank");
     }
-    CommunityComment c = comments.findById(commentId)
+    // 잠그는 이유는 PostService.updatePost 와 같다 — 전 컬럼 flush 가 stale 상태를 되돌려 쓴다.
+    CommunityComment c = comments.findByIdForUpdate(commentId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("comment " + commentId));
     if (c.getAuthorId() == null || c.getAuthorId() != userId) {
@@ -68,7 +69,7 @@ public class CommentService {
 
   @Transactional
   public void delete(long userId, long commentId) {
-    CommunityComment c = comments.findById(commentId)
+    CommunityComment c = comments.findByIdForUpdate(commentId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("comment " + commentId));
     if (c.getAuthorId() == null || c.getAuthorId() != userId) {

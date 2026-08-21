@@ -59,6 +59,7 @@ class ContentMutationRaceTest {
   @Autowired AnswerService answerService;
   @Autowired PostService postService;
   @Autowired VoteService voteService;
+  @Autowired CommentService commentService;
   @Autowired ContentAdminService contentAdmin;
   @Autowired UserReputationRepository reputations;
 
@@ -253,6 +254,98 @@ class ContentMutationRaceTest {
     Integer stored = jdbc.queryForObject(
         "SELECT downvote_count FROM community_posts WHERE id = ?", Integer.class, postId);
     assertThat(stored).as("락이 없으면 B 가 A 를 못 세어 1 이 저장된다").isEqualTo(2);
+  }
+
+  /**
+   * ★수정은 "본문만 바꾸는" 것이 아니다★ — 엔티티에 {@code @DynamicUpdate} 가 없어 flush 는
+   * 전 컬럼 UPDATE 다. 잠그지 않은 수정이 내리기와 겹치면 읽어 둔 stale PUBLISHED 가
+   * HIDDEN 을 되돌려 쓴다(모더레이션 우회) + deleted=false 색인 이벤트로 검색에도 부활한다.
+   */
+  @Test
+  void inFlightEditCannotResurrectAHiddenPost() {
+    long author = 9561, raceAdminTarget;
+    long postId = tx.execute(st ->
+        questionService.create(author, new CreateQuestionRequest("t", "b", List.of())).id());
+    raceAdminTarget = postId;
+
+    Future<?>[] edit = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      contentAdmin.hidePost(raceAdminTarget);      // 락 획득 + HIDDEN, 아직 커밋 전
+      edit[0] = inAnotherTransaction(() -> postService.updatePost(author, raceAdminTarget,
+          new ai.devpath.community.post.dto.UpdatePostRequest("고친제목", "고친본문")));
+      assertStillInFlight(edit[0]);
+    });                                             // 커밋 → 해제
+
+    assertThatThrownBy(() -> edit[0].get(10, TimeUnit.SECONDS))
+        .isInstanceOf(ExecutionException.class)
+        .hasCauseInstanceOf(NotFoundException.class);
+    String status = jdbc.queryForObject(
+        "SELECT status FROM community_posts WHERE id = ?", String.class, postId);
+    assertThat(status).as("락이 없으면 stale PUBLISHED 가 HIDDEN 을 되돌려 쓴다")
+        .isEqualTo("HIDDEN");
+  }
+
+  @Test
+  void inFlightCommentEditCannotResurrectAHiddenComment() {
+    long author = 9571, commenter = 9572;
+    long[] ids = tx.execute(st -> {
+      var q = questionService.create(author, new CreateQuestionRequest("t", "b", List.of()));
+      var cm = commentService.addComment(commenter, q.id(),
+          new ai.devpath.community.post.dto.CreateCommentRequest("원댓글"));
+      return new long[] {q.id(), cm.id()};
+    });
+    long commentId = ids[1];
+
+    Future<?>[] edit = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      contentAdmin.hideComment(commentId);
+      edit[0] = inAnotherTransaction(() -> commentService.update(commenter, commentId,
+          new ai.devpath.community.post.dto.UpdateBodyRequest("고친댓글")));
+      assertStillInFlight(edit[0]);
+    });
+
+    assertThatThrownBy(() -> edit[0].get(10, TimeUnit.SECONDS))
+        .isInstanceOf(ExecutionException.class)
+        .hasCauseInstanceOf(NotFoundException.class);
+    String status = jdbc.queryForObject(
+        "SELECT status FROM community_comments WHERE id = ?", String.class, commentId);
+    assertThat(status).isEqualTo("HIDDEN");
+  }
+
+  /**
+   * ★답변 행 락은 "서로 다른 답변" 의 동시 채택을 직렬화하지 못한다★ — 공유 상태는 질문
+   * 행이다. 질문을 잠그지 않으면 둘 다 stale "미채택" 을 보고 진행해 두 답변이 모두
+   * accepted 가 되고 보상이 두 번 나간다.
+   */
+  @Test
+  void concurrentAcceptsOfDifferentAnswersRewardOnlyOnce() {
+    long asker = 9581, answererA = 9582, answererB = 9583;
+    long[] ids = tx.execute(st -> {
+      var q = questionService.create(asker, new CreateQuestionRequest("t", "b", List.of()));
+      var a = answerService.add(answererA, q.id(), new CreateAnswerRequest("답A"));
+      var b = answerService.add(answererB, q.id(), new CreateAnswerRequest("답B"));
+      return new long[] {q.id(), a.id(), b.id()};
+    });
+    long answerA = ids[1];
+    long answerB = ids[2];
+
+    Future<?>[] second = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      answerService.accept(asker, answerA);        // 질문 행 락 + 채택, 아직 커밋 전
+      second[0] = inAnotherTransaction(() -> answerService.accept(asker, answerB));
+      assertStillInFlight(second[0]);
+    });                                             // 커밋 → 해제
+
+    assertThatThrownBy(() -> second[0].get(10, TimeUnit.SECONDS))
+        .as("두 번째 채택은 이미 채택된 질문임을 보고 물러나야 한다")
+        .isInstanceOf(ExecutionException.class)
+        .hasCauseInstanceOf(ai.devpath.community.report.ConflictException.class);
+    assertThat(repOf(answererA)).as("먼저 간 채택의 보상만 남는다").isEqualTo(15);
+    assertThat(repOf(answererB)).as("락이 없으면 여기도 15 가 된다").isZero();
+    Integer acceptedCount = jdbc.queryForObject(
+        "SELECT count(*) FROM community_answers WHERE question_id = ? AND is_accepted",
+        Integer.class, ids[0]);
+    assertThat(acceptedCount).as("accepted 답변은 정확히 하나").isEqualTo(1);
   }
 
   /**

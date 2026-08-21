@@ -50,13 +50,21 @@ public class AnswerService {
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     if (a.isAccepted()) return;   // 중복 채택 가드(중복 가산 방지)
-    CommunityQuestion q = questions.findById(a.getQuestionId())
+    // ★전역 락 순서: answer → question → post → (맨 마지막) 평판★
+    // 답변 행 락은 "서로 다른 답변" 의 동시 채택을 직렬화하지 못한다 — 공유 상태는 질문
+    // 행이다. 부모 글도 잠가 내리기와의 창을 닫는다(내려간 질문에 채택 보상이 나가면 안 된다).
+    CommunityQuestion q = questions.findByIdForUpdate(a.getQuestionId())
         .orElseThrow(() -> new NotFoundException("question " + a.getQuestionId()));
-    CommunityPost p = posts.findById(q.getPostId())
+    CommunityPost p = posts.findByIdForUpdate(q.getPostId())
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("post " + q.getPostId()));
     if (p.getAuthorId() == null || p.getAuthorId() != userId) {
       throw new ForbiddenException("only question author can accept");
+    }
+    // 다른 답변이 이미 채택돼 있으면 물러난다 — 덮어쓰면 두 답변이 accepted 로 남고
+    // 보상이 두 번 나간다(경쟁뿐 아니라 순차로도 같은 구멍이었다).
+    if (q.getAcceptedAnswerId() != null) {
+      throw new ConflictException("이미 채택된 답변이 있습니다. 채택을 먼저 해제해 주세요.");
     }
     a.setAccepted(true);
     answers.save(a);
@@ -77,7 +85,9 @@ public class AnswerService {
     if (req.bodyMd() == null || req.bodyMd().isBlank()) {
       throw new IllegalArgumentException("bodyMd must not be blank");
     }
-    CommunityAnswer a = answers.findById(answerId)
+    // 잠그는 이유는 PostService.updatePost 와 같다 — 전 컬럼 flush 가 stale 상태(status·
+    // accepted·집계)를 되돌려 쓴다.
+    CommunityAnswer a = answers.findByIdForUpdate(answerId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     if (a.getAuthorId() == null || a.getAuthorId() != userId) {

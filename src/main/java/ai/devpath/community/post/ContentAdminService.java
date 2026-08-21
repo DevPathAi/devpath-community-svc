@@ -65,16 +65,20 @@ public class ContentAdminService {
     CommunityAnswer a = answers.findByIdForUpdate(answerId)
         .filter(found -> takedownable(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
+    long questionPostId = a.getQuestionId();
+    // ★전역 락 순서: answer → question → post → (맨 마지막) 평판★
+    // 평판 upsert 는 flushAutomatically 로 앞선 엔티티 변경을 먼저 내보내며 행 락을 잡는다 —
+    // 평판을 먼저 만지고 나중에 질문을 갱신하면, 질문을 먼저 잡고 평판을 기다리는 채택
+    // 경로와 교착 사이클이 된다(외부 리뷰 지적). 그래서 행 락을 전부 쥔 뒤에만 평판을 만진다.
+    CommunityQuestion q = questions.findByIdForUpdate(questionPostId).orElse(null);
+    CommunityPost parent = posts.findByIdForUpdate(questionPostId).orElse(null);
+
     a.setStatus(ContentStatus.HIDDEN);
     if (a.isAccepted()) {
       a.setAccepted(false);
     }
     answers.save(a);
 
-    long questionPostId = a.getQuestionId();
-    reputation.revokeAllForSource("ANSWER", answerId, tagIdsOfPost(questionPostId));
-
-    CommunityQuestion q = questions.findById(questionPostId).orElse(null);
     if (q != null && Long.valueOf(answerId).equals(q.getAcceptedAnswerId())) {
       q.setAcceptedAnswerId(null);
       q.setSolved(false);
@@ -82,16 +86,20 @@ public class ContentAdminService {
       // 검색 문서에 isSolved 가 실려 있다. 갱신하지 않으면 "해결됨" 인데 답이 없는 상태가 된다.
       // ★단 부모 글이 이미 내려갔으면 upsert 는 삭제된 질문을 색인에 되살린다★ — 그때의
       // 올바른 색인 상태는 "없음" 이므로 삭제 이벤트를 낸다(멱등이라 다시 보내도 안전하다).
-      boolean parentGone = posts.findById(questionPostId)
-          .map(found -> !ContentStatus.PUBLISHED.equals(found.getStatus()))
-          .orElse(true);
+      // 부모 판정은 위에서 잠근 행으로 한다 — 잠그지 않은 읽기는 삭제 커밋과 겹칠 때
+      // stale deleted=false 가 마지막 이벤트가 되어 검색에 되살릴 수 있다.
+      boolean parentGone =
+          parent == null || !ContentStatus.PUBLISHED.equals(parent.getStatus());
       postIndexEvents.publish(questionPostId, parentGone);
     }
+    reputation.revokeAllForSource("ANSWER", answerId, tagIdsOfPost(questionPostId));
   }
 
   @Transactional
   public void hideComment(long commentId) {
-    CommunityComment c = comments.findById(commentId)
+    // 잠그는 이유는 작성자 수정과 같다 — 잠그지 않은 두 경로가 겹치면 전 컬럼 flush 가
+    // stale 상태를 되돌려 쓴다(작성자 수정이 HIDDEN 을 PUBLISHED 로 부활시킬 수 있었다).
+    CommunityComment c = comments.findByIdForUpdate(commentId)
         .filter(found -> takedownable(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("comment " + commentId));
     c.setStatus(ContentStatus.HIDDEN);
