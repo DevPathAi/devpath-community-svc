@@ -91,6 +91,29 @@ public class PostService {
     return postDetail(postId);
   }
 
+  /**
+   * 작성자 삭제. 상태만 바꾸고 자식(댓글)은 건드리지 않는다.
+   *
+   * <p>자식 상태를 전파하지 않는 이유는 되돌릴 수 있어야 하기 때문이다 — 전파하면 복구할 때
+   * 자식이 스스로 삭제된 것인지 부모 때문인지 구분이 사라진다. 도달 경로는 이미 막혀 있다
+   * (부모가 404 이고 자식 목록도 부모 상태를 확인한다).
+   *
+   * <p>이미 삭제된 것을 다시 지우면 404 다. 프론트가 resourceNotFound 를
+   * "이미 삭제된 콘텐츠예요" 로 렌더하므로 그 UI 와 맞물린다.
+   */
+  @Transactional
+  public void deletePost(long userId, long postId) {
+    CommunityPost p = posts.findById(postId)
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
+        .orElseThrow(() -> new NotFoundException("post " + postId));
+    if (p.getAuthorId() == null || p.getAuthorId() != userId) {
+      throw new ForbiddenException("작성자만 삭제할 수 있습니다");
+    }
+    p.setStatus(ContentStatus.DELETED);
+    posts.save(p);
+    postIndexEvents.publish(postId, true);
+  }
+
   private List<String> tagNamesFor(long postId) {
     List<Long> ids = postTags.findByPostId(postId).stream()
         .map(CommunityPostTag::getTagId).collect(Collectors.toList());

@@ -106,6 +106,12 @@ public class CommunityController {
     return ResponseEntity.ok(postService.updatePost(uid(jwt), id, req));
   }
 
+  @DeleteMapping("/posts/{id}")
+  public ResponseEntity<Void> deletePost(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+    postService.deletePost(uid(jwt), id);
+    return ResponseEntity.noContent().build();
+  }
+
   @PostMapping("/posts/{id}/comments")
   public ResponseEntity<CommentView> addComment(
       @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody CreateCommentRequest req) {
