@@ -92,20 +92,48 @@ public class ReputationService {
         ReputationReason.ACCEPT_BONUS, sourceType, sourceId));
   }
 
+  /**
+   * 그 콘텐츠로 얻은 평판을 전부 되돌린다. 관리자 삭제(HIDDEN)에서만 쓴다 —
+   * 작성자 삭제(DELETED)는 이미 받은 평가를 무효로 만들지 않는다.
+   *
+   * <p>{@link #reverseVote} 를 재사용할 수 없다. 그것은 한 투표자의 이벤트만 되돌리고,
+   * 여기서는 모든 투표자와 수용 보너스까지 되돌려야 한다. 그리고 ★이벤트별 역산은 틀린다★ —
+   * 취소된 투표의 원본과 역산이 서로를 상쇄해 아무것도 회수되지 않는다. 순합을 되돌린다.
+   *
+   * <p>회수 후 순합이 0 이 되므로 다시 호출해도 아무 일이 없다(멱등).
+   */
+  @Transactional
+  public void revokeAllForSource(String sourceType, long sourceId, List<Long> tagIds) {
+    for (Object[] row : events.netBySource(sourceType, sourceId)) {
+      long userId = ((Number) row[0]).longValue();
+      String reason = (String) row[1];
+      int net = ((Number) row[2]).intValue();
+      int back = -net;
+      addTotal(userId, back);
+      // 행사자 비용(DOWNVOTE_CAST)은 태그 무관이다 — reverseVote 와 같은 예외 처리.
+      if (!ReputationReason.DOWNVOTE_CAST.name().equals(reason)) {
+        for (Long tagId : tagIds) addTag(userId, tagId, back);
+      }
+      events.save(new ReputationEvent(userId, null, back,
+          ReputationReason.valueOf(reason), sourceType, sourceId));
+    }
+  }
+
   public int reputationOf(long userId) {
     return reputations.findByUserId(userId).map(UserReputation::getTotal).orElse(0);
   }
 
+  /**
+   * ★find-then-save 를 쓰지 않는다★ — 행이 없을 때 두 요청이 각자 INSERT 해
+   * {@code user_reputation_pkey} 를 위반하고(실측), 행이 있을 때는 둘 다 옛 총점을 읽어
+   * 나중 것이 앞의 가산을 덮는다. 콘텐츠 행 락으로도 못 막는다 — 같은 작성자의 <b>서로 다른</b>
+   * 콘텐츠에서 오는 요청은 서로 다른 행을 잠근다. 가산을 DB 안에서 원자적으로 끝낸다.
+   */
   private void addTotal(long userId, int delta) {
-    UserReputation r = reputations.findByUserId(userId).orElseGet(() -> new UserReputation(userId));
-    r.add(delta);
-    reputations.save(r);
+    reputations.addTotalAtomically(userId, delta);
   }
 
   private void addTag(long userId, long tagId, int delta) {
-    UserTagReputation t = tagReputations.findByUserIdAndTagId(userId, tagId)
-        .orElseGet(() -> new UserTagReputation(userId, tagId));
-    t.add(delta);
-    tagReputations.save(t);
+    tagReputations.addScoreAtomically(userId, tagId, delta);
   }
 }

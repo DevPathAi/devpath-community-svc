@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 매달림을 53분 침묵 대신 실패로 바꾼다. 정상 소요는 2~5분이고, Flyway 자기 교착
+    # (application-test.yml 의 transactional-lock 주석 참조)이 여기서 실제로 53분을 삼켰다.
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: read
