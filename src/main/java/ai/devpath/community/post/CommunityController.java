@@ -100,6 +100,12 @@ public class CommunityController {
     return ResponseEntity.ok(postService.postDetail(id));
   }
 
+  @PutMapping("/posts/{id}")
+  public ResponseEntity<PostDetailView> updatePost(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody UpdatePostRequest req) {
+    return ResponseEntity.ok(postService.updatePost(uid(jwt), id, req));
+  }
+
   @PostMapping("/posts/{id}/comments")
   public ResponseEntity<CommentView> addComment(
       @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody CreateCommentRequest req) {

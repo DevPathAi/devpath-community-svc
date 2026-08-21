@@ -3,6 +3,7 @@ package ai.devpath.community.post;
 import ai.devpath.community.post.dto.CommentView;
 import ai.devpath.community.post.dto.CreatePostRequest;
 import ai.devpath.community.post.dto.PostDetailView;
+import ai.devpath.community.post.dto.UpdatePostRequest;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -18,12 +19,13 @@ public class PostService {
   private final CommunityPostTagRepository postTags;
   private final CommunityCommentRepository comments;
   private final PostIndexEventPublisher postIndexEvents;
+  private final ContentRevisionRecorder revisions;
 
   public PostService(CommunityPostRepository posts, CommunityTagRepository tags,
       CommunityPostTagRepository postTags, CommunityCommentRepository comments,
-      PostIndexEventPublisher postIndexEvents) {
+      PostIndexEventPublisher postIndexEvents, ContentRevisionRecorder revisions) {
     this.posts = posts; this.tags = tags; this.postTags = postTags; this.comments = comments;
-    this.postIndexEvents = postIndexEvents;
+    this.postIndexEvents = postIndexEvents; this.revisions = revisions;
   }
 
   @Transactional
@@ -59,6 +61,34 @@ public class PostService {
         .collect(Collectors.toList());
     return new PostDetailView(p.getId(), p.getBoardType(), p.getTitle(), p.getBodyMd(),
         p.getAuthorId(), p.getUpvoteCount(), p.getDownvoteCount(), tagNames, commentViews);
+  }
+
+  /**
+   * 글·질문 본문 수정. 질문(QNA)도 같은 community_posts 행이므로 여기서 함께 처리한다.
+   *
+   * <p>시간 제한을 두지 않는다 — "N분 안에만" 은 이력이 없을 때 왜곡을 막는 방어책이고,
+   * 우리는 리비전을 남기므로 그 방어가 다른 방식으로 성립한다.
+   */
+  @Transactional
+  public PostDetailView updatePost(long userId, long postId, UpdatePostRequest req) {
+    if (req.bodyMd() == null || req.bodyMd().isBlank()) {
+      throw new IllegalArgumentException("bodyMd must not be blank");
+    }
+    if (req.title() == null || req.title().isBlank()) {
+      throw new IllegalArgumentException("title must not be blank");
+    }
+    CommunityPost p = posts.findById(postId)
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
+        .orElseThrow(() -> new NotFoundException("post " + postId));
+    if (p.getAuthorId() == null || p.getAuthorId() != userId) {
+      throw new ForbiddenException("작성자만 수정할 수 있습니다");
+    }
+    revisions.record("POST", postId, p.getTitle(), p.getBodyMd(), p.getBodyHtml(), userId);
+    p.setTitle(req.title());
+    p.setBodyMd(req.bodyMd());
+    posts.save(p);
+    postIndexEvents.publish(postId, false);
+    return postDetail(postId);
   }
 
   private List<String> tagNamesFor(long postId) {
