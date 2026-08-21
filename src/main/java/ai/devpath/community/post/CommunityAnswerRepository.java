@@ -6,4 +6,5 @@ public interface CommunityAnswerRepository extends JpaRepository<CommunityAnswer
   java.util.List<CommunityAnswer> findByQuestionIdOrderByCreatedAtAsc(Long questionId);
   int countByQuestionId(Long questionId);
   long countByAuthorIdAndAiGeneratedFalse(Long authorId);
+  long countByAuthorIdAndAiGeneratedFalseAndStatus(Long authorId, String status);
 }

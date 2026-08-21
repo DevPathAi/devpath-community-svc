@@ -1,5 +1,6 @@
 package ai.devpath.community.post;
 
+import ai.devpath.community.post.dto.RevisionView;
 import ai.devpath.community.reputation.ReputationService;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -23,14 +24,15 @@ public class ContentAdminService {
   private final CommunityPostTagRepository postTags;
   private final ReputationService reputation;
   private final PostIndexEventPublisher postIndexEvents;
+  private final ContentRevisionRepository revisions;
 
   public ContentAdminService(CommunityPostRepository posts, CommunityAnswerRepository answers,
       CommunityCommentRepository comments, CommunityQuestionRepository questions,
       CommunityPostTagRepository postTags, ReputationService reputation,
-      PostIndexEventPublisher postIndexEvents) {
+      PostIndexEventPublisher postIndexEvents, ContentRevisionRepository revisions) {
     this.posts = posts; this.answers = answers; this.comments = comments;
     this.questions = questions; this.postTags = postTags; this.reputation = reputation;
-    this.postIndexEvents = postIndexEvents;
+    this.postIndexEvents = postIndexEvents; this.revisions = revisions;
   }
 
   @Transactional
@@ -76,6 +78,14 @@ public class ContentAdminService {
     c.setStatus(ContentStatus.HIDDEN);
     comments.save(c);
     // 댓글에는 투표 엔드포인트가 없어 회수할 평판이 없다. 색인 문서에도 댓글은 없다.
+  }
+
+  @Transactional(readOnly = true)
+  public List<RevisionView> revisionsOf(String targetType, long targetId) {
+    return revisions.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(targetType, targetId).stream()
+        .map(r -> new RevisionView(r.getTargetType(), r.getTargetId(), r.getTitle(),
+            r.getBodyMd(), r.getEditedBy(), r.getCreatedAt()))
+        .toList();
   }
 
   private List<Long> tagIdsOfPost(long postId) {

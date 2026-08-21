@@ -1,9 +1,13 @@
 package ai.devpath.community.post;
 
+import ai.devpath.community.post.dto.RevisionView;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -40,5 +44,11 @@ public class ContentAdminController {
   public ResponseEntity<Void> hideComment(@PathVariable long id) {
     service.hideComment(id);
     return ResponseEntity.noContent().build();
+  }
+
+  @GetMapping("/revisions")
+  public ResponseEntity<List<RevisionView>> revisions(
+      @RequestParam String targetType, @RequestParam long targetId) {
+    return ResponseEntity.ok(service.revisionsOf(targetType, targetId));
   }
 }
