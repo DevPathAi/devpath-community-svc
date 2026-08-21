@@ -131,4 +131,30 @@ class ContentMutationRaceTest {
         .hasCauseInstanceOf(NotFoundException.class);
     assertThat(repOf(answerer)).as("락이 없으면 여기가 10 이 된다").isZero();
   }
+
+  @Test
+  void acceptCannotLandOnAnAnswerThatIsBeingDeleted() {
+    long asker = 9511, answerer = 9512;
+    long[] ids = tx.execute(st -> {
+      var q = questionService.create(asker, new CreateQuestionRequest("t", "b", List.of()));
+      var a = answerService.add(answerer, q.id(), new CreateAnswerRequest("ans"));
+      return new long[] {q.id(), a.id()};
+    });
+    long questionId = ids[0];
+    long answerId = ids[1];
+
+    Future<?>[] accept = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      answerService.delete(answerer, answerId);   // 락 획득 + DELETED, 아직 커밋 전
+      accept[0] = inAnotherTransaction(() -> answerService.accept(asker, answerId));
+      assertStillInFlight(accept[0]);
+    });                                            // 커밋 → 해제
+
+    assertThatThrownBy(() -> accept[0].get(10, TimeUnit.SECONDS))
+        .isInstanceOf(ExecutionException.class)
+        .hasCauseInstanceOf(NotFoundException.class);
+    assertThat(questionService.detail(questionId).solved())
+        .as("락이 없으면 solved 가 삭제된 답변을 가리킨다").isFalse();
+    assertThat(repOf(answerer)).as("락이 없으면 채택 보상 +15 가 나간다").isZero();
+  }
 }

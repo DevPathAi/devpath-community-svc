@@ -46,7 +46,7 @@ public class AnswerService {
   public void accept(long userId, long answerId) {
     // 내려갔거나 지워진 답변은 채택 대상이 아니다. 막지 않으면 비석을 "정답" 으로 굳히고
     // (solved=true + acceptedAnswerId), 관리자가 회수한 평판을 채택 보상으로 되돌린다.
-    CommunityAnswer a = answers.findById(answerId)
+    CommunityAnswer a = answers.findByIdForUpdate(answerId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     if (a.isAccepted()) return;   // 중복 채택 가드(중복 가산 방지)
@@ -99,7 +99,7 @@ public class AnswerService {
    */
   @Transactional
   public void delete(long userId, long answerId) {
-    CommunityAnswer a = answers.findById(answerId)
+    CommunityAnswer a = answers.findByIdForUpdate(answerId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     if (a.getAuthorId() == null || a.getAuthorId() != userId) {
