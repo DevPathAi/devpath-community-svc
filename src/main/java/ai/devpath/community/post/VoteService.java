@@ -65,7 +65,7 @@ public class VoteService {
   @Transactional
   public void voteAnswer(long userId, long answerId, int value) {
     validate(value);
-    CommunityAnswer a = answers.findById(answerId)
+    CommunityAnswer a = answers.findByIdForUpdate(answerId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     if (a.getAuthorId() != null && a.getAuthorId() == userId) {

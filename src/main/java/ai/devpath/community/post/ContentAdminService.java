@@ -62,7 +62,7 @@ public class ContentAdminService {
 
   @Transactional
   public void hideAnswer(long answerId) {
-    CommunityAnswer a = answers.findById(answerId)
+    CommunityAnswer a = answers.findByIdForUpdate(answerId)
         .filter(found -> takedownable(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     a.setStatus(ContentStatus.HIDDEN);
