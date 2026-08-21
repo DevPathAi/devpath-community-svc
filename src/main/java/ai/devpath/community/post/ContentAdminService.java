@@ -35,10 +35,24 @@ public class ContentAdminService {
     this.postIndexEvents = postIndexEvents; this.revisions = revisions;
   }
 
+  /**
+   * ★작성자 삭제는 모더레이션을 선점하지 못한다★
+   *
+   * <p>{@code DELETED} 도 내릴 수 있어야 한다. {@code PUBLISHED} 만 받으면 어뷰저가 upvote 를
+   * 모은 뒤 스스로 지우는 것만으로 평판을 굳힐 수 있다 — {@code DELETED} 는 설계상 평판을
+   * 유지하고, 그 뒤로는 관리자 요청이 영영 404 이기 때문이다.
+   *
+   * <p>거부하는 것은 <b>이미 내려간 것</b> 뿐이다. 두 번 회수하면 평판이 음수로 흘러내린다
+   * ({@code netBySource} 가 멱등이라 총점은 지켜지지만 보정 이벤트가 계속 늘어난다).
+   */
+  private static boolean takedownable(String status) {
+    return !ContentStatus.HIDDEN.equals(status);
+  }
+
   @Transactional
   public void hidePost(long postId) {
     CommunityPost p = posts.findById(postId)
-        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
+        .filter(found -> takedownable(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("post " + postId));
     p.setStatus(ContentStatus.HIDDEN);
     posts.save(p);
@@ -49,7 +63,7 @@ public class ContentAdminService {
   @Transactional
   public void hideAnswer(long answerId) {
     CommunityAnswer a = answers.findById(answerId)
-        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
+        .filter(found -> takedownable(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     a.setStatus(ContentStatus.HIDDEN);
     if (a.isAccepted()) {
@@ -66,14 +80,19 @@ public class ContentAdminService {
       q.setSolved(false);
       questions.save(q);
       // 검색 문서에 isSolved 가 실려 있다. 갱신하지 않으면 "해결됨" 인데 답이 없는 상태가 된다.
-      postIndexEvents.publish(questionPostId, false);
+      // ★단 부모 글이 이미 내려갔으면 upsert 는 삭제된 질문을 색인에 되살린다★ — 그때의
+      // 올바른 색인 상태는 "없음" 이므로 삭제 이벤트를 낸다(멱등이라 다시 보내도 안전하다).
+      boolean parentGone = posts.findById(questionPostId)
+          .map(found -> !ContentStatus.PUBLISHED.equals(found.getStatus()))
+          .orElse(true);
+      postIndexEvents.publish(questionPostId, parentGone);
     }
   }
 
   @Transactional
   public void hideComment(long commentId) {
     CommunityComment c = comments.findById(commentId)
-        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
+        .filter(found -> takedownable(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("comment " + commentId));
     c.setStatus(ContentStatus.HIDDEN);
     comments.save(c);
