@@ -123,6 +123,19 @@ public class CommunityController {
     return ResponseEntity.ok(commentService.listComments(id));
   }
 
+  @PutMapping("/comments/{id}")
+  public ResponseEntity<CommentView> updateComment(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody UpdateBodyRequest req) {
+    return ResponseEntity.ok(commentService.update(uid(jwt), id, req));
+  }
+
+  @DeleteMapping("/comments/{id}")
+  public ResponseEntity<Void> deleteComment(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+    commentService.delete(uid(jwt), id);
+    return ResponseEntity.noContent().build();
+  }
+
   @PostMapping("/posts/{id}/vote")
   public ResponseEntity<Void> votePost(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
       @RequestBody VoteRequest req) {

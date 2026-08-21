@@ -56,8 +56,7 @@ public class PostService {
         .orElseThrow(() -> new NotFoundException("post " + postId));
     List<String> tagNames = tagNamesFor(postId);
     List<CommentView> commentViews = comments.findByPostIdOrderByCreatedAtAsc(postId).stream()
-        .map(c -> new CommentView(c.getId(), c.getAuthorId(), c.getBodyMd(),
-            c.getUpvoteCount(), c.getCreatedAt()))
+        .map(CommentService::toView)
         .collect(Collectors.toList());
     return new PostDetailView(p.getId(), p.getBoardType(), p.getTitle(), p.getBodyMd(),
         p.getAuthorId(), p.getUpvoteCount(), p.getDownvoteCount(), tagNames, commentViews);
