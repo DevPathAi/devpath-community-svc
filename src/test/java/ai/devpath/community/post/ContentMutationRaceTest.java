@@ -99,6 +99,15 @@ class ContentMutationRaceTest {
     }));
   }
 
+  /** 워커가 예외 없이 끝났음을 단언하고 결과를 돌려준다. */
+  Object awaitSuccess(Future<?> f) {
+    try {
+      return f.get(10, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      throw new AssertionError("워커가 정상 종료해야 한다", e);
+    }
+  }
+
   /** 아직 진행 중이어야 한다 = 인터리빙이 실제로 일어났다는 증거. */
   void assertStillInFlight(Future<?> f) {
     assertThatThrownBy(() -> f.get(500, TimeUnit.MILLISECONDS))
@@ -156,5 +165,31 @@ class ContentMutationRaceTest {
     assertThat(questionService.detail(questionId).solved())
         .as("락이 없으면 solved 가 삭제된 답변을 가리킨다").isFalse();
     assertThat(repOf(answerer)).as("락이 없으면 채택 보상 +15 가 나간다").isZero();
+  }
+
+  @Test
+  void sameUserVotingTwiceConcurrentlyDoesNotViolateTheVoteUniqueConstraint() {
+    long asker = 9521, answerer = 9522, voter = 9523;
+    long answerId = tx.execute(st -> {
+      var q = questionService.create(asker, new CreateQuestionRequest("t", "b", List.of()));
+      return answerService.add(answerer, q.id(), new CreateAnswerRequest("ans")).id();
+    });
+
+    Future<?>[] second = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      voteService.voteAnswer(voter, answerId, 1);   // 표를 넣고 아직 커밋 전
+      second[0] = inAnotherTransaction(() -> voteService.voteAnswer(voter, answerId, 1));
+      assertStillInFlight(second[0]);
+    });                                              // 커밋 → 해제
+
+    // 예외 없이 끝나야 한다. 락이 없으면 두 요청이 각자 "표가 없다" 고 보고 둘 다 insert 해
+    // uq_community_votes 를 위반하고, @Transactional 안이라 rollback-only 로 번진다.
+    awaitSuccess(second[0]);
+
+    Integer votes = jdbc.queryForObject(
+        "SELECT count(*) FROM community_votes WHERE user_id = ? AND target_type = 'ANSWER'"
+            + " AND target_id = ?", Integer.class, voter, answerId);
+    assertThat(votes).as("표는 한 행이어야 한다").isEqualTo(1);
+    assertThat(repOf(answerer)).as("평판은 한 번만 붙는다").isEqualTo(10);
   }
 }
