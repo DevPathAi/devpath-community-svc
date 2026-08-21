@@ -81,8 +81,10 @@ public class QuestionService {
     CommunityQuestion q = questions.findById(postId)
         .orElseThrow(() -> new NotFoundException("question " + postId));
     List<AnswerView> ans = answers.findByQuestionIdOrderByCreatedAtAsc(postId).stream()
-        .map(a -> new AnswerView(a.getId(), a.getAuthorId(), a.getBodyMd(),
-            a.isAiGenerated(), a.isAccepted(), a.getUpvoteCount()))
+        .map(a -> ContentStatus.PUBLISHED.equals(a.getStatus())
+            ? new AnswerView(a.getId(), a.getAuthorId(), a.getBodyMd(),
+                a.isAiGenerated(), a.isAccepted(), a.getUpvoteCount(), false)
+            : AnswerView.tombstone(a.getId(), a.getUpvoteCount()))
         .collect(Collectors.toList());
     List<String> tagNames = tagNamesFor(postId);
     return new QuestionDetailView(p.getId(), p.getTitle(), p.getBodyMd(), q.isSolved(),

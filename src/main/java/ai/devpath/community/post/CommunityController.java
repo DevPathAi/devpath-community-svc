@@ -137,6 +137,19 @@ public class CommunityController {
     return ResponseEntity.ok().build();
   }
 
+  @PutMapping("/answers/{id}")
+  public ResponseEntity<AnswerView> updateAnswer(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody UpdateBodyRequest req) {
+    return ResponseEntity.ok(answerService.update(uid(jwt), id, req));
+  }
+
+  @DeleteMapping("/answers/{id}")
+  public ResponseEntity<Void> deleteAnswer(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+    answerService.delete(uid(jwt), id);
+    return ResponseEntity.noContent().build();
+  }
+
   @GetMapping("/tags")
   public ResponseEntity<List<TagView>> tags(@RequestParam(required = false) String q) {
     return ResponseEntity.ok(tagService.autocomplete(q));
