@@ -110,7 +110,7 @@ public class VoteService {
    * 읽기 경로가 이미 404 를 내므로 투표도 같은 답을 내야 한다.
    */
   private CommunityPost publishedPost(long postId) {
-    return posts.findById(postId)
+    return posts.findByIdForUpdate(postId)
         .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("post " + postId));
   }

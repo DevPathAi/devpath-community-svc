@@ -192,4 +192,27 @@ class ContentMutationRaceTest {
     assertThat(votes).as("표는 한 행이어야 한다").isEqualTo(1);
     assertThat(repOf(answerer)).as("평판은 한 번만 붙는다").isEqualTo(10);
   }
+
+  @Test
+  void inFlightVoteCannotLandOnAPostThatWasJustHidden() {
+    long author = 9531, firstVoter = 9532, raceVoter = 9533;
+    long postId = tx.execute(st ->
+        questionService.create(author, new CreateQuestionRequest("t", "b", List.of())).id());
+
+    // 대조군: 내려가기 전 downvote 는 실제로 평판을 내린다(글 downvote 는 평판 게이트가 없다).
+    tx.executeWithoutResult(st -> voteService.votePost(firstVoter, postId, -1));
+    assertThat(repOf(author)).isEqualTo(-2);
+
+    Future<?>[] vote = new Future<?>[1];
+    tx.executeWithoutResult(st -> {
+      contentAdmin.hidePost(postId);            // 락 획득 + 평판 회수, 아직 커밋 전
+      vote[0] = inAnotherTransaction(() -> voteService.votePost(raceVoter, postId, -1));
+      assertStillInFlight(vote[0]);
+    });                                          // 커밋 → 해제
+
+    assertThatThrownBy(() -> vote[0].get(10, TimeUnit.SECONDS))
+        .isInstanceOf(ExecutionException.class)
+        .hasCauseInstanceOf(NotFoundException.class);
+    assertThat(repOf(author)).as("락이 없으면 -2 가 다시 붙는다").isZero();
+  }
 }

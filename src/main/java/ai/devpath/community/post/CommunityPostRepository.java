@@ -25,4 +25,18 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
     + "order by p.id")
   java.util.List<Long> findPublishedIdsAfter(long afterId,
       org.springframework.data.domain.Pageable pageable);
+
+  /**
+   * 변경 경로 전용 조회. 행을 잠가 같은 글에 대한 다른 변경과 직렬화한다.
+   *
+   * <p>{@link CommunityAnswerRepository#findByIdForUpdate} 와 같은 계약이다 — 자세한 근거는
+   * 거기에 적혀 있다. 락 대기는 3초에서 끊긴다(측정함).
+   */
+  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @org.springframework.data.jpa.repository.QueryHints(
+      @jakarta.persistence.QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
+  @org.springframework.data.jpa.repository.Query(
+      "select p from CommunityPost p where p.id = :id")
+  java.util.Optional<CommunityPost> findByIdForUpdate(
+      @org.springframework.data.repository.query.Param("id") long id);
 }

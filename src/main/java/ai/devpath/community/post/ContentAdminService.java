@@ -51,7 +51,7 @@ public class ContentAdminService {
 
   @Transactional
   public void hidePost(long postId) {
-    CommunityPost p = posts.findById(postId)
+    CommunityPost p = posts.findByIdForUpdate(postId)
         .filter(found -> takedownable(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("post " + postId));
     p.setStatus(ContentStatus.HIDDEN);
