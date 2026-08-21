@@ -44,12 +44,16 @@ public class AnswerService {
 
   @Transactional
   public void accept(long userId, long answerId) {
+    // 내려갔거나 지워진 답변은 채택 대상이 아니다. 막지 않으면 비석을 "정답" 으로 굳히고
+    // (solved=true + acceptedAnswerId), 관리자가 회수한 평판을 채택 보상으로 되돌린다.
     CommunityAnswer a = answers.findById(answerId)
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     if (a.isAccepted()) return;   // 중복 채택 가드(중복 가산 방지)
     CommunityQuestion q = questions.findById(a.getQuestionId())
         .orElseThrow(() -> new NotFoundException("question " + a.getQuestionId()));
     CommunityPost p = posts.findById(q.getPostId())
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("post " + q.getPostId()));
     if (p.getAuthorId() == null || p.getAuthorId() != userId) {
       throw new ForbiddenException("only question author can accept");

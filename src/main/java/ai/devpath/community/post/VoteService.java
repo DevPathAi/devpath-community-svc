@@ -33,7 +33,7 @@ public class VoteService {
   @Transactional
   public void votePost(long userId, long postId, int value) {
     validate(value);
-    CommunityPost p = posts.findById(postId).orElseThrow(() -> new NotFoundException("post " + postId));
+    CommunityPost p = publishedPost(postId);
     if (p.getAuthorId() != null && p.getAuthorId() == userId) {
       throw new ForbiddenException("자기 글에는 투표할 수 없습니다");
     }
@@ -66,10 +66,16 @@ public class VoteService {
   public void voteAnswer(long userId, long answerId, int value) {
     validate(value);
     CommunityAnswer a = answers.findById(answerId)
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
         .orElseThrow(() -> new NotFoundException("answer " + answerId));
     if (a.getAuthorId() != null && a.getAuthorId() == userId) {
       throw new ForbiddenException("자기 답변에는 투표할 수 없습니다");
     }
+    // 부모가 내려갔으면 자식도 변경 대상이 아니다. 삭제는 자식에 전파하지 않기로 했으므로
+    // (되돌릴 때 자·타 삭제를 구분할 수 없게 되기 때문) 변경 경로가 부모를 직접 확인한다.
+    CommunityQuestion q = questions.findById(a.getQuestionId())
+        .orElseThrow(() -> new NotFoundException("question " + a.getQuestionId()));
+    publishedPost(q.getPostId());
     // 게이트: 답변 downvote는 평판 125 이상
     if (value == -1 && reputation.reputationOf(userId) < RepPoints.LVL_DOWNVOTE_ANSWER) {
       throw new ForbiddenException("답변 downvote는 평판 " + RepPoints.LVL_DOWNVOTE_ANSWER + " 이상 필요");
@@ -78,8 +84,6 @@ public class VoteService {
     upsert(userId, "ANSWER", answerId, (short) value);
     a.setUpvoteCount(votes.countByTargetTypeAndTargetIdAndValue("ANSWER", answerId, (short) 1));
     answers.save(a);
-    CommunityQuestion q = questions.findById(a.getQuestionId())
-        .orElseThrow(() -> new NotFoundException("question " + a.getQuestionId()));
     List<Long> tagIds = postTags.findByPostId(q.getPostId()).stream()
         .map(CommunityPostTag::getTagId).toList();
     reputation.applyVote(a.getAuthorId(), userId, "ANSWER", answerId, oldValue, value, tagIds);
@@ -99,6 +103,16 @@ public class VoteService {
     if (value == 1) {
       collusionDetector.checkOnUpvote(userId, a.getAuthorId(), "ANSWER", answerId);
     }
+  }
+
+  /**
+   * 게시 중인 글만 돌려준다. 내려간 글(HIDDEN)·지워진 글(DELETED)은 "없는 것" 으로 다룬다 —
+   * 읽기 경로가 이미 404 를 내므로 투표도 같은 답을 내야 한다.
+   */
+  private CommunityPost publishedPost(long postId) {
+    return posts.findById(postId)
+        .filter(found -> ContentStatus.PUBLISHED.equals(found.getStatus()))
+        .orElseThrow(() -> new NotFoundException("post " + postId));
   }
 
   private int currentValue(long userId, String type, long targetId) {
