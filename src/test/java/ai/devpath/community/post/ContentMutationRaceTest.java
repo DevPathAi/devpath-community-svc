@@ -16,6 +16,7 @@ import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -45,6 +46,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Timeout(120)
 class ContentMutationRaceTest {
 
   /** 이 테스트가 독점하는 사용자 id 공간. 정리도 정확히 이 범위로만 한다. */
@@ -63,10 +65,24 @@ class ContentMutationRaceTest {
   TransactionTemplate tx;
   ExecutorService pool;
 
+  /**
+   * ★워커는 반드시 데몬이어야 한다★ — JDBC 소켓 읽기에서 막힌 스레드는
+   * {@code shutdownNow()} 의 인터럽트에 반응하지 않는다. 비데몬이면 그 스레드 하나 때문에
+   * <b>테스트 JVM 이 종료되지 못하고</b> Gradle 이 영원히 기다린다(CI 에서 53분 무출력으로 겪음).
+   * 데몬이면 최악의 경우에도 JVM 이 빠져나온다.
+   */
+  private static ExecutorService daemonPool() {
+    return Executors.newSingleThreadExecutor(r -> {
+      Thread t = new Thread(r, "content-race-worker");
+      t.setDaemon(true);
+      return t;
+    });
+  }
+
   @BeforeEach
   void isolate() {
     tx = new TransactionTemplate(txm);
-    pool = Executors.newSingleThreadExecutor();
+    pool = daemonPool();
     jdbc.update("DELETE FROM community_votes WHERE user_id BETWEEN ? AND ?", LO, HI);
     jdbc.update("DELETE FROM reputation_events WHERE user_id BETWEEN ? AND ?"
         + " OR actor_id BETWEEN ? AND ?", LO, HI, LO, HI);

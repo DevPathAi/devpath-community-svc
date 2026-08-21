@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -26,6 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Timeout(120)
 class LockTimeoutProbeTest {
 
   @Autowired PlatformTransactionManager txm;
@@ -36,7 +38,11 @@ class LockTimeoutProbeTest {
   @Test
   void lockWaitIsBounded() {
     TransactionTemplate tx = new TransactionTemplate(txm);
-    ExecutorService pool = Executors.newSingleThreadExecutor();
+    ExecutorService pool = Executors.newSingleThreadExecutor(r -> {
+      Thread t = new Thread(r, "lock-probe-worker");
+      t.setDaemon(true);   // 막힌 워커가 테스트 JVM 종료를 막지 못하게 한다
+      return t;
+    });
     try {
       long answerId = tx.execute(st -> {
         var q = questionService.create(9601L, new CreateQuestionRequest("t", "b", List.of()));
