@@ -87,8 +87,9 @@ public class QuestionService {
             : AnswerView.tombstone(a.getId(), a.getUpvoteCount()))
         .collect(Collectors.toList());
     List<String> tagNames = tagNamesFor(postId);
-    return new QuestionDetailView(p.getId(), p.getTitle(), p.getBodyMd(), q.isSolved(),
-        q.getAcceptedAnswerId(), p.getUpvoteCount(), p.getDownvoteCount(), tagNames, ans);
+    return new QuestionDetailView(p.getId(), p.getTitle(), p.getBodyMd(), p.getAuthorId(),
+        q.isSolved(), q.getAcceptedAnswerId(), p.getUpvoteCount(), p.getDownvoteCount(),
+        tagNames, ans);
   }
 
   @Transactional(readOnly = true)
