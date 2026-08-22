@@ -25,4 +25,18 @@ public interface ReputationEventRepository extends JpaRepository<ReputationEvent
         and e.reason in ('UPVOTE_Q','UPVOTE_A') and e.delta > 0
       """)
   long countDistinctUpvotedSourcesByActorToUser(@Param("actorId") Long actorId, @Param("userId") Long userId);
+
+  /**
+   * (userId, reason) 별 델타 순합. 관리자 삭제 시 평판을 되돌리는 데 쓴다.
+   *
+   * <p>★이벤트를 하나씩 뒤집으면 안 된다★ — 취소된 투표는 원본(+10)과 역산(-10)이 둘 다
+   * 저장돼 있어 각각 뒤집으면 순효과가 0 이 된다. 순합이 0 이 아닌 것만 되돌려야 한다.
+   */
+  @Query("""
+      select e.userId, e.reason, coalesce(sum(e.delta), 0) from ReputationEvent e
+      where e.sourceType = :sourceType and e.sourceId = :sourceId
+      group by e.userId, e.reason having coalesce(sum(e.delta), 0) <> 0
+      """)
+  List<Object[]> netBySource(@Param("sourceType") String sourceType,
+      @Param("sourceId") Long sourceId);
 }

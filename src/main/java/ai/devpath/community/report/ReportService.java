@@ -86,12 +86,15 @@ public class ReportService {
   private Long targetAuthorId(ReportTargetType type, Long targetId) {
     return switch (type) {
       case POST -> posts.findById(targetId)
+          .filter(p -> ai.devpath.community.post.ContentStatus.PUBLISHED.equals(p.getStatus()))
           .orElseThrow(() -> new NotFoundException("신고 대상 글을 찾을 수 없습니다."))
           .getAuthorId();
       case ANSWER -> answers.findById(targetId)
+          .filter(a -> ai.devpath.community.post.ContentStatus.PUBLISHED.equals(a.getStatus()))
           .orElseThrow(() -> new NotFoundException("신고 대상 답변을 찾을 수 없습니다."))
           .getAuthorId();
       case COMMENT -> comments.findById(targetId)
+          .filter(c -> ai.devpath.community.post.ContentStatus.PUBLISHED.equals(c.getStatus()))
           .orElseThrow(() -> new NotFoundException("신고 대상 댓글을 찾을 수 없습니다."))
           .getAuthorId();
     };

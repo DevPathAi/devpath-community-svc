@@ -11,6 +11,13 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    postgresql:
+      # ★빈 DB 에 처음부터 마이그레이션할 때 CREATE INDEX CONCURRENTLY(V202608161002)가
+      # Flyway 자신의 idle-in-transaction 커넥션을 기다리는 자기 교착이 난다★ — 실측:
+      # pg_stat_activity 에 Lock/virtualxid 대기 + idle in transaction 쌍. 타이밍 의존이라
+      # flaky 하고(빈 DB 4회 중 3회), CI 가 이것으로 53분 무출력 매달림을 겪었다.
+      # shared 의 마이그레이션 테스트와 gitops 마이그레이션 Job 이 이미 같은 값을 쓴다.
+      transactional-lock: false
   jpa:
     hibernate:
       ddl-auto: none

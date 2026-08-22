@@ -23,7 +23,9 @@ public class ActivityController {
   @GetMapping
   public ActivityView get(@AuthenticationPrincipal Jwt jwt) {
     long uid = Long.parseLong(jwt.getSubject());
+    // 지운 글·답변은 내 활동에서도 빠진다. 남아 있으면 "지워지지 않았다" 고 읽힌다.
     return new ActivityView(
-        posts.countByAuthorId(uid), answers.countByAuthorIdAndAiGeneratedFalse(uid));
+        posts.countByAuthorIdAndStatus(uid, ContentStatus.PUBLISHED),
+        answers.countByAuthorIdAndAiGeneratedFalseAndStatus(uid, ContentStatus.PUBLISHED));
   }
 }

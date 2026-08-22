@@ -100,6 +100,18 @@ public class CommunityController {
     return ResponseEntity.ok(postService.postDetail(id));
   }
 
+  @PutMapping("/posts/{id}")
+  public ResponseEntity<PostDetailView> updatePost(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody UpdatePostRequest req) {
+    return ResponseEntity.ok(postService.updatePost(uid(jwt), id, req));
+  }
+
+  @DeleteMapping("/posts/{id}")
+  public ResponseEntity<Void> deletePost(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+    postService.deletePost(uid(jwt), id);
+    return ResponseEntity.noContent().build();
+  }
+
   @PostMapping("/posts/{id}/comments")
   public ResponseEntity<CommentView> addComment(
       @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody CreateCommentRequest req) {
@@ -109,6 +121,19 @@ public class CommunityController {
   @GetMapping("/posts/{id}/comments")
   public ResponseEntity<java.util.List<CommentView>> listComments(@PathVariable long id) {
     return ResponseEntity.ok(commentService.listComments(id));
+  }
+
+  @PutMapping("/comments/{id}")
+  public ResponseEntity<CommentView> updateComment(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody UpdateBodyRequest req) {
+    return ResponseEntity.ok(commentService.update(uid(jwt), id, req));
+  }
+
+  @DeleteMapping("/comments/{id}")
+  public ResponseEntity<Void> deleteComment(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+    commentService.delete(uid(jwt), id);
+    return ResponseEntity.noContent().build();
   }
 
   @PostMapping("/posts/{id}/vote")
@@ -123,6 +148,19 @@ public class CommunityController {
       @RequestBody VoteRequest req) {
     voteService.voteAnswer(uid(jwt), id, req.value());
     return ResponseEntity.ok().build();
+  }
+
+  @PutMapping("/answers/{id}")
+  public ResponseEntity<AnswerView> updateAnswer(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id, @RequestBody UpdateBodyRequest req) {
+    return ResponseEntity.ok(answerService.update(uid(jwt), id, req));
+  }
+
+  @DeleteMapping("/answers/{id}")
+  public ResponseEntity<Void> deleteAnswer(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+    answerService.delete(uid(jwt), id);
+    return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/tags")
