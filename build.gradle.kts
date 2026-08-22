@@ -8,6 +8,7 @@ group = "ai.devpath"
 version = "0.0.1-SNAPSHOT"
 description = "DevPath AI community services (post, reputation, badge, moderation)"
 
+// shared 좌표는 gradle.properties 가 명시적으로 핀한다(SNAPSHOT 폴백 없음 — fail-closed).
 val devpathSharedVersion = providers.gradleProperty("devpathSharedVersion").get()
 val devpathSharedCoordinate = "ai.devpath:devpath-shared:$devpathSharedVersion"
 
