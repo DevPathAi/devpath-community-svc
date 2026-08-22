@@ -11,9 +11,9 @@ import org.junit.jupiter.api.Test;
 
 class ImmutableSharedResolutionContractTest {
 
-  private static final String VERSION = "0.0.1-et9.20260816";
+  private static final String VERSION = "0.0.1-et10.20260820";
   private static final String SHA_256 =
-      "94e2adb769790d813a872163347ede20ad4c75ae88e5811df2ec6625a340f21f";
+      "0f74ac34ae08fdf6ffeb7903dc1a17775ddca7c0fa67171a2f217d71887bf544";
 
   @Test
   void resolvesTheExactImmutableSharedReleaseWithoutCompositeSubstitution() throws Exception {
@@ -29,7 +29,7 @@ class ImmutableSharedResolutionContractTest {
     assertThat(Files.readString(Path.of("build.gradle.kts")))
         .contains("implementation(devpathSharedCoordinate)")
         .doesNotContain("devpath-shared:0.0.1-SNAPSHOT")
-        .doesNotContain("devpath-shared:0.0.1-et8.20260816");
+        .doesNotContain("devpath-shared:0.0.1-et9.20260816");
   }
 
   private static String sha256(Path file) throws Exception {
